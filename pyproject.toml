@@ -1,13 +1,12 @@
 [build-system]
 build-backend = "hatchling.build"
 
-requires = [ "hatchling" ]
+requires = [ "hatchling", "hatch-vcs" ]
 
 [project]
-name = "meltano-state-backend-postgres"
-version = "0.1.0"
+name = "meltano-state-backend-postgresql"
+dynamic = [ "version" ]
 description = "Meltano State Backend for PostgreSQL"
-readme = "README.md"
 license = "MIT"
 license-files = [
   "LICENSE",
@@ -15,6 +14,7 @@ license-files = [
 authors = [
   { name = "Alexander Phethean", email = "aphethean@gmail.com" },
 ]
+readme = "README.md"
 requires-python = ">=3.10"
 classifiers = [
   "Programming Language :: Python :: 3 :: Only",
@@ -22,23 +22,29 @@ classifiers = [
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
 ]
 dependencies = [
   "meltano>=3.7",
   "psycopg[binary]>=3.1,<4",
 ]
 
+[project.urls]
+Documentation = "https://github.com/meltano/meltano-state-backend-postgresql"
+Source = "https://github.com/meltano/meltano-state-backend-postgresql"
+Issues = "https://github.com/meltano/meltano-state-backend-postgresql/issues"
+
 [project.entry-points."meltano.settings"]
-postgres_host = "meltano_state_backend_postgres.backend:POSTGRES_HOST"
-postgres_port = "meltano_state_backend_postgres.backend:POSTGRES_PORT"
-postgres_database = "meltano_state_backend_postgres.backend:POSTGRES_DATABASE"
-postgres_user = "meltano_state_backend_postgres.backend:POSTGRES_USER"
-postgres_password = "meltano_state_backend_postgres.backend:POSTGRES_PASSWORD"
-postgres_schema = "meltano_state_backend_postgres.backend:POSTGRES_SCHEMA"
-postgres_sslmode = "meltano_state_backend_postgres.backend:POSTGRES_SSLMODE"
+host = "meltano_state_backend_postgresql.backend:POSTGRESQL_HOST"
+port = "meltano_state_backend_postgresql.backend:POSTGRESQL_PORT"
+database = "meltano_state_backend_postgresql.backend:POSTGRESQL_DATABASE"
+user = "meltano_state_backend_postgresql.backend:POSTGRESQL_USER"
+password = "meltano_state_backend_postgresql.backend:POSTGRESQL_PASSWORD"
+schema = "meltano_state_backend_postgresql.backend:POSTGRESQL_SCHEMA"
+sslmode = "meltano_state_backend_postgresql.backend:POSTGRESQL_SSLMODE"
 
 [project.entry-points."meltano.state_backends"]
-postgres = "meltano_state_backend_postgres.backend:PostgresStateStoreManager"
+postgresql = "meltano_state_backend_postgresql.backend:PostgreSQLStateStoreManager"
 
 [dependency-groups]
 dev = [
@@ -50,12 +56,19 @@ lint = [
   "ruff>=0.12.3",
 ]
 tests = [
-  "coverage[toml]>=7.9",
-  "pytest>=8.4.1",
+  "coverage[toml]>=7.13",
+  "pytest>=9",
+  "testcontainers[postgres]>=4",
 ]
 types = [
-  "mypy>=1.17",
+  { include-group = "tests" },
+  "mypy>=1.19",
+  "ty>=0.0.14",
 ]
+
+[tool.hatch.version]
+fallback-version = "0.0.0.dev0"
+source = "vcs"
 
 [tool.ruff]
 line-length = 100
@@ -123,21 +136,32 @@ parametrize-values-type = "tuple"
 [tool.ruff.lint.pydocstyle]
 convention = "google"
 
-[tool.pytest.ini_options]
+[tool.pytest]
 addopts = [
   "--durations=10",
+  "-ra",
+  "--strict-config",
+  "--strict-markers",
 ]
+filterwarnings = [
+  "error",
+  "once:The 'version' field in meltano.yml is deprecated:DeprecationWarning",
+]
+log_level = "INFO"
+minversion = "9"
+testpaths = ["tests"]
+xfail_strict = true
 
 [tool.coverage.paths]
 package = [
-  "src/meltano_state_backend_postgres/",
-  "*/site-packages/meltano_state_backend_postgres/",
+  "src/meltano_state_backend_postgresql/",
+  "*/site-packages/meltano_state_backend_postgresql/",
 ]
 
 [tool.coverage.run]
 branch = true
 source = [
-  "meltano_state_backend_postgres",
+  "meltano_state_backend_postgresql",
   "tests",
 ]
 parallel = true
@@ -155,6 +179,7 @@ requires = [ "tox", "tox-uv" ]
 env_list = [
   "types",
   "lint",
+  "3.14",
   "3.13",
   "3.12",
   "3.11",
@@ -173,6 +198,7 @@ depends = [
   "3.11",
   "3.12",
   "3.13",
+  "3.14",
 ]
 dependency_groups = [ "tests" ]
 commands = [
@@ -194,13 +220,32 @@ dependency_groups = [ "tests", "types" ]
 commands = [
   [
     "mypy",
-    "--strict",
     { replace = "posargs", default = [
-      "src/meltano_state_backend_postgres",
+      "src/meltano_state_backend_postgresql",
       "tests",
     ], extend = true },
   ],
+  [
+    "ty",
+    "check",
+    { replace = "posargs", default = [
+      "src/meltano_state_backend_postgresql",
+      "tests",
+    ], extend = true },
+  ]
 ]
 
 [tool.uv.sources]
 meltano = { git = "https://github.com/meltano/meltano.git", rev = "main" }
+
+[tool.mypy]
+enable_error_code = [
+  "ignore-without-code",
+  "redundant-expr",
+  "truthy-bool",
+]
+follow_untyped_imports = true
+strict = true
+warn_unreachable = true
+warn_unused_configs = true
+warn_unused_ignores = true

@@ -68,7 +68,3 @@ dmypy.json
 
 # Ruff
 .ruff_cache/
-
-# UV
-.uv/
-uv.lock
