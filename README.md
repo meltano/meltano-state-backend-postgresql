@@ -104,10 +104,13 @@ uvx --with tox-uv tox run-parallel
 
 ### Bump the version
 
+Using the [GitHub CLI][gh]:
+
 ```bash
-uv version --bump <type>
+gh release create v<new-version>
 ```
 
+[gh]: https://cli.github.com/
 [meltano]: https://meltano.com
 [pipx]: https://github.com/pypa/pipx
 [postgresql]: https://www.postgresql.org/
