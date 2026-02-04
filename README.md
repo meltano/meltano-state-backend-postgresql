@@ -1,9 +1,12 @@
-# `meltano-state-backend-postgres`
+# `meltano-state-backend-postgresql`
 
-[![PyPI version](https://img.shields.io/pypi/v/meltano-state-backend-postgres.svg?logo=pypi&logoColor=FFE873&color=blue)](https://pypi.org/project/meltano-state-backend-postgres)
-[![Python versions](https://img.shields.io/pypi/pyversions/meltano-state-backend-postgres.svg?logo=python&logoColor=FFE873)](https://pypi.org/project/meltano-state-backend-postgres)
+<!-- Display these if and when we publish to PyPI. -->
 
-This is a [Meltano][meltano] extension that provides a [PostgreSQL][postgresql] [state backend][state-backend].
+<!--
+[![PyPI version](https://img.shields.io/pypi/v/meltano-state-backend-postgresql.svg?logo=pypi&logoColor=FFE873&color=blue)](https://pypi.org/project/meltano-state-backend-postgresql)
+[![Python versions](https://img.shields.io/pypi/pyversions/meltano-state-backend-postgresql.svg?logo=python&logoColor=FFE873)](https://pypi.org/project/meltano-state-backend-postgresql) -->
+
+This is a [Meltano] extension that provides a [PostgreSQL] [state backend][state-backend].
 
 ## Installation
 
@@ -14,21 +17,22 @@ This package needs to be installed in the same Python environment as Meltano.
 #### With [uv]
 
 ```bash
-uv tool install --with meltano-state-backend-postgres meltano
+uv tool install --with git+https://github.com/meltano/meltano-state-backend-postgresql.git meltano
 ```
 
 #### With [pipx]
 
 ```bash
 pipx install meltano
-pipx inject meltano meltano-state-backend-postgres
+pipx inject meltano git+https://github.com/meltano/meltano-state-backend-postgresql.git
 ```
 
 ## Configuration
 
-To store state in PostgreSQL, set the `state_backend.uri` setting to `postgres://<user>:<password>@<host>:<port>/<database>/<schema>`.
+To store state in PostgreSQL, set the `state_backend.uri` setting to `postgresql://<user>:<password>@<host>:<port>/<database>/<schema>`.
 
 State will be stored in two tables that Meltano will create automatically:
+
 - `meltano_state` - Stores the actual state data
 - `meltano_state_locks` - Manages concurrency locks
 
@@ -36,8 +40,8 @@ To authenticate to PostgreSQL, you'll need to provide:
 
 ```yaml
 state_backend:
-  uri: postgres://my_user:my_password@localhost:5432/my_database/my_schema
-  postgres:
+  uri: postgresql://my_user:my_password@localhost:5432/my_database/my_schema
+  postgresql:
     sslmode: prefer  # Optional: SSL mode (default: prefer)
 ```
 
@@ -45,8 +49,8 @@ Alternatively, you can provide credentials via individual settings:
 
 ```yaml
 state_backend:
-  uri: postgres://localhost/my_database
-  postgres:
+  uri: postgresql://localhost/my_database
+  postgresql:
     host: localhost
     port: 5432         # Defaults to 5432 if not specified
     user: my_user
@@ -69,6 +73,7 @@ state_backend:
 #### Security Considerations
 
 When storing credentials:
+
 - Use environment variables for sensitive values in production
 - Consider using SSL/TLS connections with sslmode=require or verify-full
 - Ensure the user has CREATE TABLE, INSERT, UPDATE, DELETE, and SELECT privileges on the schema
@@ -76,9 +81,9 @@ When storing credentials:
 Example using environment variables:
 
 ```bash
-export MELTANO_STATE_BACKEND_POSTGRES_PASSWORD='my_secure_password'
-meltano config meltano set state_backend.uri 'postgres://my_user@localhost/my_database'
-meltano config meltano set state_backend.postgres.sslmode 'require'
+export MELTANO_STATE_BACKEND_POSTGRESQL_PASSWORD='my_secure_password'
+meltano config meltano set state_backend.uri 'postgresql://my_user@localhost/my_database'
+meltano config meltano set state_backend.postgresql.sslmode 'require'
 ```
 
 ## Development
@@ -104,7 +109,7 @@ uv version --bump <type>
 ```
 
 [meltano]: https://meltano.com
+[pipx]: https://github.com/pypa/pipx
 [postgresql]: https://www.postgresql.org/
 [state-backend]: https://docs.meltano.com/concepts/state_backends
-[pipx]: https://github.com/pypa/pipx
 [uv]: https://docs.astral.sh/uv

@@ -2,6 +2,6 @@ version: 1
 project_id: test-project
 
 state_backend:
-  uri: postgres://user:password@localhost:5432/meltano/public
-  postgres:
+  uri: postgresql://user:password@localhost:5432/meltano/public
+  postgresql:
     sslmode: prefer
