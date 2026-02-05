@@ -669,7 +669,7 @@ wheels = [
 [[package]]
 name = "meltano"
 version = "4.1.2"
-source = { git = "https://github.com/meltano/meltano.git?rev=main#1a4af7ac9fb6027f94a0256a2e84d8acd5db8677" }
+source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "alembic" },
     { name = "anyio" },
@@ -699,6 +699,10 @@ dependencies = [
     { name = "urllib3" },
     { name = "uv" },
     { name = "virtualenv" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/61/4c/fae1c2a4841abcd1b8681cacb152d9b6cebac51e419305fe23c8f29ad306/meltano-4.1.2.tar.gz", hash = "sha256:aa544d525463d14ef84388937b28e7c5f1a4f35617a957cea4c254f77a87b611", size = 12772828, upload-time = "2026-02-03T03:26:25.964Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/b6/0d/9d20427b6b5fdeb48233ca500b6237ebde71616b0cbf455726b15812ae93/meltano-4.1.2-py3-none-any.whl", hash = "sha256:ad5230505723a4922b7efbf511bfdabe56854da3d4040b435da5afd91d1b1b5f", size = 399944, upload-time = "2026-02-03T03:26:23.919Z" },
 ]
 
 [[package]]
@@ -736,7 +740,7 @@ types = [
 
 [package.metadata]
 requires-dist = [
-    { name = "meltano", git = "https://github.com/meltano/meltano.git?rev=main" },
+    { name = "meltano", specifier = ">=3.7" },
     { name = "psycopg", extras = ["binary"], specifier = ">=3.1,<4" },
 ]
 

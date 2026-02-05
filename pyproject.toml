@@ -237,9 +237,6 @@ commands = [
   ],
 ]
 
-[tool.uv.sources]
-meltano = { git = "https://github.com/meltano/meltano.git", rev = "main" }
-
 [tool.mypy]
 enable_error_code = [
   "ignore-without-code",
