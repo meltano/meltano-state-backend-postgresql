@@ -36,16 +36,15 @@ def manager(
     postgres_container: PostgresContainer,
 ) -> Generator[PostgreSQLStateStoreManager, None, None]:
     """Create a PostgreSQLStateStoreManager connected to the test container."""
-    obj = PostgreSQLStateStoreManager(
+    with PostgreSQLStateStoreManager(
         uri=postgres_container.get_connection_url(),
         host=postgres_container.get_container_host_ip(),
         port=int(postgres_container.get_exposed_port(5432)),
         user=postgres_container.username,
         password=postgres_container.password,
         database=postgres_container.dbname,
-    )
-    yield obj
-    obj.connection.close()
+    ) as obj:
+        yield obj
 
 
 @pytest.mark.skipif(
@@ -252,6 +251,7 @@ def test_get_manager(project: Project) -> None:
     assert manager.database == "meltano"
     assert manager.schema == "public"
     assert manager.sslmode == "prefer"
+    assert manager.table_name == "state"
 
 
 @pytest.mark.parametrize(
@@ -281,6 +281,11 @@ def test_get_manager(project: Project) -> None:
             "state_backend.postgresql.sslmode",
             "MELTANO_STATE_BACKEND_POSTGRESQL_SSLMODE",
             id="sslmode",
+        ),
+        pytest.param(
+            "state_backend.postgresql.table",
+            "MELTANO_STATE_BACKEND_POSTGRESQL_TABLE",
+            id="table",
         ),
     ),
 )
@@ -724,3 +729,97 @@ def test_uri_schema_parsing() -> None:
 
         # Verify schema was parsed from URI path
         assert manager.schema == "myschema"
+
+
+def test_context_manager_closes_connection() -> None:
+    """Test that using the manager as a context manager closes the connection."""
+    with mock.patch("psycopg.connect") as mock_connect:
+        mock_conn = mock.Mock()
+        mock_cursor = mock.Mock()
+        mock_cursor_context = mock.Mock()
+        mock_cursor_context.__enter__ = mock.Mock(return_value=mock_cursor)
+        mock_cursor_context.__exit__ = mock.Mock(return_value=None)
+        mock_conn.cursor.return_value = mock_cursor_context
+        mock_connect.return_value = mock_conn
+
+        with PostgreSQLStateStoreManager(
+            uri="postgresql://testuser:testpass@testhost/testdb",
+            user="testuser",
+            password="testpass",  # noqa: S106
+            database="testdb",
+        ) as manager:
+            # Connection should be open
+            _ = manager.connection
+
+        # Connection should be closed after exiting context
+        mock_conn.close.assert_called_once()
+
+
+def test_close_without_connection() -> None:
+    """Test that close() is safe to call when no connection was opened."""
+    with mock.patch("psycopg.connect") as mock_connect:
+        mock_conn = mock.Mock()
+        mock_cursor = mock.Mock()
+        mock_cursor_context = mock.Mock()
+        mock_cursor_context.__enter__ = mock.Mock(return_value=mock_cursor)
+        mock_cursor_context.__exit__ = mock.Mock(return_value=None)
+        mock_conn.cursor.return_value = mock_cursor_context
+        mock_connect.return_value = mock_conn
+
+        manager = PostgreSQLStateStoreManager(
+            uri="postgresql://testuser:testpass@testhost/testdb",
+            user="testuser",
+            password="testpass",  # noqa: S106
+            database="testdb",
+        )
+
+        # Replace the cached connection with our mock so _ensure_tables works,
+        # then remove it to simulate no connection being opened
+        del manager.__dict__["connection"]
+
+        # close() should not raise
+        manager.close()
+        mock_conn.close.assert_not_called()
+
+
+def test_custom_table_name() -> None:
+    """Test configurable table name."""
+    with mock.patch("psycopg.connect") as mock_connect:
+        mock_conn = mock.Mock()
+        mock_cursor = mock.Mock()
+        mock_cursor_context = mock.Mock()
+        mock_cursor_context.__enter__ = mock.Mock(return_value=mock_cursor)
+        mock_cursor_context.__exit__ = mock.Mock(return_value=None)
+        mock_conn.cursor.return_value = mock_cursor_context
+        mock_connect.return_value = mock_conn
+
+        manager = PostgreSQLStateStoreManager(
+            uri="postgresql://testuser:testpass@testhost/testdb",
+            user="testuser",
+            password="testpass",  # noqa: S106
+            database="testdb",
+            table="custom_state_table",
+        )
+
+        assert manager.table_name == "custom_state_table"
+
+
+def test_default_table_name() -> None:
+    """Test default table name is 'state'."""
+    with mock.patch("psycopg.connect") as mock_connect:
+        mock_conn = mock.Mock()
+        mock_cursor = mock.Mock()
+        mock_cursor_context = mock.Mock()
+        mock_cursor_context.__enter__ = mock.Mock(return_value=mock_cursor)
+        mock_cursor_context.__exit__ = mock.Mock(return_value=None)
+        mock_conn.cursor.return_value = mock_cursor_context
+        mock_connect.return_value = mock_conn
+
+        manager = PostgreSQLStateStoreManager(
+            uri="postgresql://testuser:testpass@testhost/testdb",
+            user="testuser",
+            password="testpass",  # noqa: S106
+            database="testdb",
+        )
+
+        assert manager.table_name == "state"
