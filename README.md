@@ -82,8 +82,8 @@ Example using environment variables:
 
 ```bash
 export MELTANO_STATE_BACKEND_POSTGRESQL_PASSWORD='my_secure_password'
-meltano config meltano set state_backend.uri 'postgresql://my_user@localhost/my_database'
-meltano config meltano set state_backend.postgresql.sslmode 'require'
+meltano config set meltano state_backend.uri 'postgresql://my_user@localhost/my_database'
+meltano config set meltano state_backend.postgresql.sslmode 'require'
 ```
 
 ## Development

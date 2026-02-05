@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import platform
 import shutil
 from decimal import Decimal
@@ -48,7 +49,7 @@ def manager(
 
 
 @pytest.mark.skipif(
-    platform.system() != "Linux",
+    os.environ.get("CI") == "true" and platform.system() != "Linux",
     reason="Integration tests are only supported on Linux",
 )
 class TestIntegration:

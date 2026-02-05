@@ -5,6 +5,8 @@ ci:
   autoupdate_commit_msg: "chore: Update pre-commit hooks"
   autoupdate_schedule: quarterly
   submodules: false
+  skip:
+    - uv-lock
 
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
@@ -32,7 +34,7 @@ repos:
       - id: check-meltano
 
   - repo: https://github.com/astral-sh/uv-pre-commit
-    rev: "0.9.29"
+    rev: "0.9.30"
     hooks:
       - id: uv-lock
       - id: uv-sync
