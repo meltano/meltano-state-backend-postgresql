@@ -41,6 +41,7 @@ user = "meltano_state_backend_postgresql.backend:POSTGRESQL_USER"
 password = "meltano_state_backend_postgresql.backend:POSTGRESQL_PASSWORD"
 schema = "meltano_state_backend_postgresql.backend:POSTGRESQL_SCHEMA"
 sslmode = "meltano_state_backend_postgresql.backend:POSTGRESQL_SSLMODE"
+table = "meltano_state_backend_postgresql.backend:POSTGRESQL_TABLE"
 
 [project.entry-points."meltano.state_backends"]
 postgresql = "meltano_state_backend_postgresql.backend:PostgreSQLStateStoreManager"

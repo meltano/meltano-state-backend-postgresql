@@ -93,12 +93,38 @@ POSTGRESQL_SSLMODE = SettingDefinition(
     env_specific=True,
 )
 
+POSTGRESQL_TABLE = SettingDefinition(
+    name="state_backend.postgresql.table",
+    label="PostgreSQL Table",
+    description="PostgreSQL table name for state storage",
+    kind=SettingKind.STRING,  # ty: ignore[invalid-argument-type]
+    default="state",
+    env_specific=True,
+)
+
 
 class PostgreSQLStateStoreManager(StateStoreManager):
     """State backend for PostgreSQL."""
 
     label: str = "PostgreSQL"
-    table_name: str = "meltano_state"
+
+    def __enter__(self) -> PostgreSQLStateStoreManager:
+        """Enter the context manager.
+
+        Returns:
+            The manager instance.
+
+        """
+        return self
+
+    def __exit__(self, *args: object) -> None:
+        """Exit the context manager, closing the connection."""
+        self.close()
+
+    def close(self) -> None:
+        """Close the PostgreSQL connection if it has been opened."""
+        if "connection" in self.__dict__:
+            self.connection.close()
 
     def __init__(
         self,
@@ -111,6 +137,7 @@ class PostgreSQLStateStoreManager(StateStoreManager):
         password: str | None = None,
         schema: str | None = None,
         sslmode: str | None = None,
+        table: str | None = None,
         **kwargs: Any,
     ) -> None:
         """Initialize the PostgresStateStoreManager.
@@ -124,6 +151,7 @@ class PostgreSQLStateStoreManager(StateStoreManager):
             password: PostgreSQL password
             schema: PostgreSQL schema name (default: public)
             sslmode: PostgreSQL SSL mode (default: prefer)
+            table: PostgreSQL table name for state storage (default: state)
             kwargs: Additional keyword args to pass to parent
 
         """
@@ -161,6 +189,7 @@ class PostgreSQLStateStoreManager(StateStoreManager):
 
         self.schema = schema or (path_parts[1] if len(path_parts) > 1 else "public")
         self.sslmode = sslmode or "prefer"
+        self.table_name = table or "state"
 
         self._ensure_tables()
 
