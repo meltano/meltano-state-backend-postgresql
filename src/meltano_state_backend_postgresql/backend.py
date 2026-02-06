@@ -46,7 +46,7 @@ POSTGRESQL_PORT = SettingDefinition(
     label="PostgreSQL Port",
     description="PostgreSQL server port",
     kind=SettingKind.INTEGER,  # ty: ignore[invalid-argument-type]
-    default=5432,
+    value=5432,
     env_specific=True,
 )
 
@@ -80,7 +80,7 @@ POSTGRESQL_SCHEMA = SettingDefinition(
     label="PostgreSQL Schema",
     description="PostgreSQL schema name",
     kind=SettingKind.STRING,  # ty: ignore[invalid-argument-type]
-    default="public",
+    value="public",
     env_specific=True,
 )
 
@@ -89,7 +89,7 @@ POSTGRESQL_SSLMODE = SettingDefinition(
     label="PostgreSQL SSL Mode",
     description="PostgreSQL SSL mode",
     kind=SettingKind.STRING,  # ty: ignore[invalid-argument-type]
-    default="prefer",
+    value="prefer",
     env_specific=True,
 )
 
@@ -98,7 +98,7 @@ POSTGRESQL_TABLE = SettingDefinition(
     label="PostgreSQL Table",
     description="PostgreSQL table name for state storage",
     kind=SettingKind.STRING,  # ty: ignore[invalid-argument-type]
-    default="state",
+    value="state",
     env_specific=True,
 )
 
