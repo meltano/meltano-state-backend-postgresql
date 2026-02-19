@@ -235,7 +235,7 @@ class PostgreSQLStateStoreManager(StateStoreManager):
             table = DEFAULT_TABLE_NAME
 
         if not schema:
-            logger.warning("No explicit schema provided, connection will use default search path")
+            logger.info("No explicit schema provided, connection will use default search path")
             self.table_identifier = Identifier(table)
         else:
             self.table_identifier = Identifier(schema, table)

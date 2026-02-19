@@ -877,12 +877,13 @@ def test_uri_schema_from_options_query_param(caplog: pytest.LogCaptureFixture) -
         mock_conn.cursor.return_value = mock_cursor_context
         mock_connect.return_value = mock_conn
 
-        with caplog.at_level(logging.WARNING):
+        with caplog.at_level(logging.INFO):
             manager = PostgreSQLStateStoreManager(
                 uri="postgresql://testuser:testpass@testhost/testdb?options=-csearch_path%3Dmyschema",
             )
 
         assert caplog.messages == [
+            f"No explicit table name provided, using default table name: {DEFAULT_TABLE_NAME}",
             "No explicit schema provided, connection will use default search path",
         ]
 
