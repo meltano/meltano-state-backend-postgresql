@@ -57,7 +57,9 @@ lint = [
 ]
 tests = [
   "coverage[toml]>=7.13",
+  "meltano[postgres]",
   "pytest>=9",
+  "sqlalchemy>=2",
   "testcontainers[postgres]>=4",
 ]
 types = [
@@ -71,7 +73,7 @@ fallback-version = "0.0.0.dev0"
 source = "vcs"
 
 [tool.ruff]
-line-length = 100
+line-length = 120
 
 [tool.ruff.lint]
 select = [
@@ -252,3 +254,6 @@ warn_unused_ignores = true
 
 [tool.ty.rules]
 unused-type-ignore-comment = "ignore"
+
+[tool.uv.sources]
+meltano = { git = "https://github.com/meltano/meltano.git", rev = "main" }

@@ -4,12 +4,12 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 from collections.abc import Generator, Iterable
 from contextlib import contextmanager
 from functools import cached_property
 from time import sleep
-from typing import TYPE_CHECKING, Any
-from urllib.parse import urlparse
+from typing import TYPE_CHECKING, Any, TypedDict
 
 import psycopg
 from meltano.core.error import MeltanoError
@@ -20,6 +20,7 @@ from meltano.core.state_store.base import (
     StateIDLockedError,
     StateStoreManager,
 )
+from psycopg.conninfo import conninfo_to_dict, make_conninfo
 from psycopg.rows import scalar_row, tuple_row
 from psycopg.sql import SQL, Identifier
 
@@ -27,6 +28,23 @@ if TYPE_CHECKING:
     from collections.abc import Generator, Iterable
 
     from psycopg.rows import TupleRow
+
+
+DEFAULT_TABLE_NAME = "state"
+
+logger = logging.getLogger(__name__)
+
+
+class _PostgresConnInfoParams(TypedDict, total=True):
+    """Parameters for the PostgreSQL connection info."""
+
+    dbname: str
+    host: str | None
+    port: int | None
+    user: str | None
+    password: str | None
+    sslmode: str | None
+    options: str | None
 
 
 class PostgresStateBackendError(MeltanoError):
@@ -46,7 +64,6 @@ POSTGRESQL_PORT = SettingDefinition(
     label="PostgreSQL Port",
     description="PostgreSQL server port",
     kind=SettingKind.INTEGER,  # ty: ignore[invalid-argument-type]
-    value=5432,
     env_specific=True,
 )
 
@@ -80,7 +97,6 @@ POSTGRESQL_SCHEMA = SettingDefinition(
     label="PostgreSQL Schema",
     description="PostgreSQL schema name",
     kind=SettingKind.STRING,  # ty: ignore[invalid-argument-type]
-    value="public",
     env_specific=True,
 )
 
@@ -89,7 +105,6 @@ POSTGRESQL_SSLMODE = SettingDefinition(
     label="PostgreSQL SSL Mode",
     description="PostgreSQL SSL mode",
     kind=SettingKind.STRING,  # ty: ignore[invalid-argument-type]
-    value="prefer",
     env_specific=True,
 )
 
@@ -98,9 +113,51 @@ POSTGRESQL_TABLE = SettingDefinition(
     label="PostgreSQL Table",
     description="PostgreSQL table name for state storage",
     kind=SettingKind.STRING,  # ty: ignore[invalid-argument-type]
-    value="state",
     env_specific=True,
 )
+
+
+def conninfo_from_params(
+    uri: str,
+    *,
+    host: str | None = None,
+    port: int | None = None,
+    database: str | None = None,
+    user: str | None = None,
+    password: str | None = None,
+    sslmode: str | None = None,
+) -> str:
+    """Create a PostgreSQL connection info string from a URI and optional parameters."""
+    # Parse the URI then apply any explicit overrides
+    params: _PostgresConnInfoParams = conninfo_to_dict(uri)  # type: ignore[assignment]
+    if host:
+        params["host"] = host
+    if port is not None:
+        params["port"] = port
+    if user:
+        params["user"] = user
+    if password:
+        params["password"] = password
+    if database:
+        params["dbname"] = database
+    if sslmode:
+        params["sslmode"] = sslmode
+
+    # Validate required params
+    if not params.get("user"):
+        msg = "PostgreSQL user is required"
+        raise MissingStateBackendSettingsError(msg)
+    if not params.get("password"):
+        msg = "PostgreSQL password is required"
+        raise MissingStateBackendSettingsError(msg)
+    if not params.get("dbname"):
+        msg = "PostgreSQL database is required"
+        raise MissingStateBackendSettingsError(msg)
+
+    # Apply defaults for optional params
+    params.setdefault("host", "localhost")
+    params.setdefault("sslmode", "prefer")
+    return make_conninfo(**params)
 
 
 class PostgreSQLStateStoreManager(StateStoreManager):
@@ -149,7 +206,7 @@ class PostgreSQLStateStoreManager(StateStoreManager):
             database: PostgreSQL database name
             user: PostgreSQL username
             password: PostgreSQL password
-            schema: PostgreSQL schema name (default: public)
+            schema: PostgreSQL schema name (defaults to the server's search_path)
             sslmode: PostgreSQL SSL mode (default: prefer)
             table: PostgreSQL table name for state storage (default: state)
             kwargs: Additional keyword args to pass to parent
@@ -157,39 +214,28 @@ class PostgreSQLStateStoreManager(StateStoreManager):
         """
         super().__init__(**kwargs)
         self.uri = uri
-        parsed = urlparse(uri)
+        self.conninfo = conninfo_from_params(
+            uri,
+            host=host,
+            port=port,
+            database=database,
+            user=user,
+            password=password,
+            sslmode=sslmode,
+        )
 
-        # Extract connection details from URI and parameters
-        self.host = host or parsed.hostname or "localhost"
+        if not table:
+            logger.info(
+                "No explicit table name provided, using default table name: %s",
+                DEFAULT_TABLE_NAME,
+            )
+            table = DEFAULT_TABLE_NAME
 
-        # Handle port from URI or parameter
-        if port is not None:
-            self.port = port
-        elif parsed.port is not None:
-            self.port = parsed.port
+        if not schema:
+            logger.info("No explicit schema provided, connection will use default search path")
+            self.table_identifier = Identifier(table)
         else:
-            self.port = 5432
-
-        self.user = user or parsed.username
-        if not self.user:
-            msg = "PostgreSQL user is required"
-            raise MissingStateBackendSettingsError(msg)
-
-        self.password = password or parsed.password
-        if not self.password:
-            msg = "PostgreSQL password is required"
-            raise MissingStateBackendSettingsError(msg)
-
-        # Extract database from path
-        path_parts = parsed.path.strip("/").split("/") if parsed.path else []
-        self.database = database or (path_parts[0] if path_parts else None)
-        if not self.database:
-            msg = "PostgreSQL database is required"
-            raise MissingStateBackendSettingsError(msg)
-
-        self.schema = schema or (path_parts[1] if len(path_parts) > 1 else "public")
-        self.sslmode = sslmode or "prefer"
-        self.table_name = table or "state"
+            self.table_identifier = Identifier(schema, table)
 
         self._ensure_tables()
 
@@ -201,32 +247,21 @@ class PostgreSQLStateStoreManager(StateStoreManager):
             A PostgreSQL connection object.
 
         """
-        return psycopg.connect(
-            host=self.host,
-            port=self.port,
-            dbname=self.database,
-            user=self.user,
-            password=self.password,
-            sslmode=self.sslmode,
-            autocommit=True,
-        )
+        return psycopg.connect(self.conninfo, autocommit=True)
 
     def _ensure_tables(self) -> None:
         """Ensure the state table exists."""
         with self.connection.cursor() as cursor:
             query = SQL(
                 """\
-                CREATE TABLE IF NOT EXISTS {schema}.{table_name} (
+                CREATE TABLE IF NOT EXISTS {table_identifier} (
                     state_id VARCHAR(900) PRIMARY KEY,
                     partial_state TEXT,
                     completed_state TEXT,
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
                 """
-            ).format(
-                schema=Identifier(self.schema),
-                table_name=Identifier(self.table_name),
-            )
+            ).format(table_identifier=self.table_identifier)
             cursor.execute(query)
 
     def set(self, state: MeltanoState) -> None:
@@ -242,7 +277,7 @@ class PostgreSQLStateStoreManager(StateStoreManager):
         with self.connection.cursor() as cursor:
             query = SQL(
                 """\
-                INSERT INTO {schema}.{table_name}
+                INSERT INTO {table_identifier}
                 (state_id, partial_state, completed_state, updated_at)
                 VALUES (%s, %s, %s, CURRENT_TIMESTAMP)
                 ON CONFLICT (state_id)
@@ -251,10 +286,7 @@ class PostgreSQLStateStoreManager(StateStoreManager):
                     completed_state = EXCLUDED.completed_state,
                     updated_at = CURRENT_TIMESTAMP
                 """
-            ).format(
-                schema=Identifier(self.schema),
-                table_name=Identifier(self.table_name),
-            )
+            ).format(table_identifier=self.table_identifier)
             cursor.execute(query, (state.state_id, partial_json, completed_json))
 
     def get(self, state_id: str) -> MeltanoState | None:
@@ -271,13 +303,10 @@ class PostgreSQLStateStoreManager(StateStoreManager):
             query = SQL(
                 """\
                 SELECT partial_state, completed_state
-                FROM {schema}.{table_name}
+                FROM {table_identifier}
                 WHERE state_id = %s
                 """
-            ).format(
-                schema=Identifier(self.schema),
-                table_name=Identifier(self.table_name),
-            )
+            ).format(table_identifier=self.table_identifier)
             cursor.execute(query, (state_id,))
             row = cursor.fetchone()
 
@@ -305,12 +334,9 @@ class PostgreSQLStateStoreManager(StateStoreManager):
         with self.connection.cursor() as cursor:
             query = SQL(
                 """\
-                DELETE FROM {schema}.{table_name} WHERE state_id = %s
+                DELETE FROM {table_identifier} WHERE state_id = %s
                 """
-            ).format(
-                schema=Identifier(self.schema),
-                table_name=Identifier(self.table_name),
-            )
+            ).format(table_identifier=self.table_identifier)
             cursor.execute(query, (state_id,))
 
     def clear_all(self) -> int:
@@ -323,22 +349,16 @@ class PostgreSQLStateStoreManager(StateStoreManager):
         with self.connection.cursor() as cursor:
             query = SQL(
                 """\
-                SELECT COUNT(*) FROM {schema}.{table_name}
+                SELECT COUNT(*) FROM {table_identifier}
                 """
-            ).format(
-                schema=Identifier(self.schema),
-                table_name=Identifier(self.table_name),
-            )
+            ).format(table_identifier=self.table_identifier)
             cursor.execute(query)
             count = cursor.fetchone()[0]  # type: ignore[index]
             query = SQL(
                 """\
-                TRUNCATE TABLE {schema}.{table_name}
+                TRUNCATE TABLE {table_identifier}
                 """
-            ).format(
-                schema=Identifier(self.schema),
-                table_name=Identifier(self.table_name),
-            )
+            ).format(table_identifier=self.table_identifier)
             cursor.execute(query)
             return count  # type: ignore[no-any-return]
 
@@ -358,23 +378,17 @@ class PostgreSQLStateStoreManager(StateStoreManager):
                 sql_pattern = pattern.replace("*", "%").replace("?", "_")
                 query = SQL(
                     """\
-                    SELECT state_id FROM {schema}.{table_name}
+                    SELECT state_id FROM {table_identifier}
                     WHERE state_id LIKE %s
                     """
-                ).format(
-                    schema=Identifier(self.schema),
-                    table_name=Identifier(self.table_name),
-                )
+                ).format(table_identifier=self.table_identifier)
                 cursor.execute(query, (sql_pattern,))
             else:
                 query = SQL(
                     """\
-                    SELECT state_id FROM {schema}.{table_name}
+                    SELECT state_id FROM {table_identifier}
                     """
-                ).format(
-                    schema=Identifier(self.schema),
-                    table_name=Identifier(self.table_name),
-                )
+                ).format(table_identifier=self.table_identifier)
                 cursor.execute(query)
 
             yield from cursor.fetchall()

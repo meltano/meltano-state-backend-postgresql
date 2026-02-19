@@ -29,20 +29,25 @@ pipx inject meltano git+https://github.com/meltano/meltano-state-backend-postgre
 
 ## Configuration
 
-To store state in PostgreSQL, set the `state_backend.uri` setting to `postgresql://<user>:<password>@<host>:<port>/<database>/<schema>`.
+To store state in PostgreSQL, set the `state_backend.uri` setting to a standard PostgreSQL connection URI:
 
-State will be stored in two tables that Meltano will create automatically:
+```
+postgresql://<user>:<password>@<host>:<port>/<database>?options=-csearch_path%3D<schema>
+```
 
-- `meltano_state` - Stores the actual state data
-- `meltano_state_locks` - Manages concurrency locks
+The `?options=-csearch_path%3D<schema>` query parameter sets the schema where state tables will be created. If omitted, the connection uses the server's default `search_path`. `%3D` is the URL-encoded form of `=`.
+
+State will be stored in a table that Meltano will create automatically:
+
+- `state` - Stores the actual state data
 
 To authenticate to PostgreSQL, you'll need to provide:
 
 ```yaml
 state_backend:
-  uri: postgresql://my_user:my_password@localhost:5432/my_database/my_schema
+  uri: postgresql://my_user:my_password@localhost:5432/my_database?options=-csearch_path%3Dmy_schema
   postgresql:
-    sslmode: prefer  # Optional: SSL mode (default: prefer)
+    sslmode: prefer  # Optional: SSL mode
 ```
 
 Alternatively, you can provide credentials via individual settings:
@@ -56,7 +61,7 @@ state_backend:
     user: my_user
     password: my_password
     database: my_database
-    schema: my_schema  # Defaults to public if not specified
+    schema: my_schema  # Optional: defaults to the server's search_path if not specified
     sslmode: prefer    # Optional: prefer, require, disable, allow, verify-ca, verify-full
 ```
 
@@ -67,8 +72,8 @@ state_backend:
 - **user**: The username for authentication
 - **password**: The password for authentication
 - **database**: The database where state will be stored
-- **schema**: The schema where state tables will be created (defaults to public)
-- **sslmode**: SSL mode for the connection (default: prefer)
+- **schema**: The schema where state tables will be created (defaults to the server's search_path)
+- **sslmode**: SSL mode for the connection
 
 #### Security Considerations
 
@@ -82,7 +87,7 @@ Example using environment variables:
 
 ```bash
 export MELTANO_STATE_BACKEND_POSTGRESQL_PASSWORD='my_secure_password'
-meltano config set meltano state_backend.uri 'postgresql://my_user@localhost/my_database'
+meltano config set meltano state_backend.uri 'postgresql://my_user@localhost/my_database?options=-csearch_path%3Dmy_schema'
 meltano config set meltano state_backend.postgresql.sslmode 'require'
 ```
 

@@ -5,6 +5,6 @@ send_anonymous_usage_stats: false
 environments:
 - name: dev
 state_backend:
-  uri: postgresql://user:password@localhost:5432/meltano/public
+  uri: postgresql://user:password@localhost:5432/meltano
   postgresql:
     sslmode: prefer
