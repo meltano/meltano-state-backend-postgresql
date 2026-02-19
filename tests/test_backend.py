@@ -847,7 +847,7 @@ def test_custom_table_name() -> None:
 
 
 def test_default_table_name() -> None:
-    """Test default table name is 'state'."""
+    """Test default table name is honored if no explicit table name is provided."""
     with mock.patch("psycopg.connect") as mock_connect:
         mock_conn = mock.Mock()
         mock_cursor = mock.Mock()
@@ -864,7 +864,7 @@ def test_default_table_name() -> None:
             database="testdb",
         )
 
-        assert manager.table_identifier.as_string() == '"state"'
+        assert manager.table_identifier.as_string() == f'"{DEFAULT_TABLE_NAME}"'
 
 
 def test_uri_schema_from_options_query_param(caplog: pytest.LogCaptureFixture) -> None:
@@ -883,11 +883,10 @@ def test_uri_schema_from_options_query_param(caplog: pytest.LogCaptureFixture) -
             )
 
         assert caplog.messages == [
-            "No explicit table name provided, using default table name: state",
             "No explicit schema provided, connection will use default search path",
         ]
 
-        assert manager.table_identifier.as_string() == '"state"'
+        assert manager.table_identifier.as_string() == f'"{DEFAULT_TABLE_NAME}"'
         assert conninfo_to_dict(manager.conninfo).get("options") == "-csearch_path=myschema"
 
 

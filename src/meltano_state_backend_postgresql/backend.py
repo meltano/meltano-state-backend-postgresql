@@ -228,7 +228,7 @@ class PostgreSQLStateStoreManager(StateStoreManager):
         )
 
         if not table:
-            logger.warning(
+            logger.info(
                 "No explicit table name provided, using default table name: %s",
                 DEFAULT_TABLE_NAME,
             )
