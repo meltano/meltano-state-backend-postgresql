@@ -120,6 +120,49 @@ POSTGRESQL_TABLE = SettingDefinition(
 )
 
 
+def conninfo_from_params(
+    uri: str,
+    *,
+    host: str | None = None,
+    port: int | None = None,
+    database: str | None = None,
+    user: str | None = None,
+    password: str | None = None,
+    sslmode: str | None = None,
+) -> str:
+    """Create a PostgreSQL connection info string from a URI and optional parameters."""
+    # Parse the URI then apply any explicit overrides
+    params: _PostgresConnInfoParams = conninfo_to_dict(uri)  # type: ignore[assignment]
+    if host:
+        params["host"] = host
+    if port is not None:
+        params["port"] = port
+    if user:
+        params["user"] = user
+    if password:
+        params["password"] = password
+    if database:
+        params["dbname"] = database
+    if sslmode:
+        params["sslmode"] = sslmode
+
+    # Validate required params
+    if not params.get("user"):
+        msg = "PostgreSQL user is required"
+        raise MissingStateBackendSettingsError(msg)
+    if not params.get("password"):
+        msg = "PostgreSQL password is required"
+        raise MissingStateBackendSettingsError(msg)
+    if not params.get("dbname"):
+        msg = "PostgreSQL database is required"
+        raise MissingStateBackendSettingsError(msg)
+
+    # Apply defaults for optional params
+    params.setdefault("host", "localhost")
+    params.setdefault("sslmode", "prefer")
+    return make_conninfo(**params)
+
+
 class PostgreSQLStateStoreManager(StateStoreManager):
     """State backend for PostgreSQL."""
 
@@ -174,38 +217,15 @@ class PostgreSQLStateStoreManager(StateStoreManager):
         """
         super().__init__(**kwargs)
         self.uri = uri
-
-        # Parse the URI then apply any explicit overrides
-        params: _PostgresConnInfoParams = conninfo_to_dict(uri)  # type: ignore[assignment]
-        if host:
-            params["host"] = host
-        if port is not None:
-            params["port"] = port
-        if user:
-            params["user"] = user
-        if password:
-            params["password"] = password
-        if database:
-            params["dbname"] = database
-        if sslmode:
-            params["sslmode"] = sslmode
-
-        # Validate required params
-        if not params.get("user"):
-            msg = "PostgreSQL user is required"
-            raise MissingStateBackendSettingsError(msg)
-        if not params.get("password"):
-            msg = "PostgreSQL password is required"
-            raise MissingStateBackendSettingsError(msg)
-        if not params.get("dbname"):
-            msg = "PostgreSQL database is required"
-            raise MissingStateBackendSettingsError(msg)
-
-        # Apply defaults for optional params
-        params.setdefault("host", "localhost")
-        params.setdefault("sslmode", "prefer")
-
-        self.conninfo = make_conninfo(**params)
+        self.conninfo = conninfo_from_params(
+            uri,
+            host=host,
+            port=port,
+            database=database,
+            user=user,
+            password=password,
+            sslmode=sslmode,
+        )
 
         if not table:
             logger.warning(
