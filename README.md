@@ -47,7 +47,7 @@ To authenticate to PostgreSQL, you'll need to provide:
 state_backend:
   uri: postgresql://my_user:my_password@localhost:5432/my_database?options=-csearch_path%3Dmy_schema
   postgresql:
-    sslmode: prefer  # Optional: SSL mode (default: prefer)
+    sslmode: prefer  # Optional: SSL mode
 ```
 
 Alternatively, you can provide credentials via individual settings:
@@ -73,7 +73,7 @@ state_backend:
 - **password**: The password for authentication
 - **database**: The database where state will be stored
 - **schema**: The schema where state tables will be created (defaults to the server's search_path)
-- **sslmode**: SSL mode for the connection (default: prefer)
+- **sslmode**: SSL mode for the connection
 
 #### Security Considerations
 
