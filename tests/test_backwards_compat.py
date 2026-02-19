@@ -2,13 +2,16 @@ from __future__ import annotations
 
 import os
 import platform
+import uuid
 from typing import TYPE_CHECKING
 
+import psycopg
 import pytest
 import sqlalchemy
 import sqlalchemy.orm
 from meltano.core.migration_service import MigrationService
 from meltano.core.state_store import MeltanoState, state_store_manager_from_project_settings
+from psycopg.sql import SQL, Identifier
 
 from meltano_state_backend_postgresql.backend import PostgreSQLStateStoreManager
 
@@ -33,9 +36,29 @@ class TestBackwardsCompat:
     """
 
     @pytest.fixture
-    def engine(self, postgres_container: PostgresContainer) -> Generator[sqlalchemy.Engine, None, None]:
+    def schema(self, postgres_container: PostgresContainer) -> Generator[str, None, None]:
+        """Get a unique schema for the test."""
+        schema_name = f"test_schema_{uuid.uuid4().hex[:8]}"
+        identifier = Identifier(schema_name)
+        with psycopg.connect(postgres_container.get_connection_url(), autocommit=True) as conn:
+            conn.execute(SQL("CREATE SCHEMA {schema_name}").format(schema_name=identifier))
+            yield schema_name
+            conn.execute(SQL("DROP SCHEMA {schema_name} CASCADE").format(schema_name=identifier))
+
+    @pytest.fixture
+    def systemdb_uri(self, postgres_container: PostgresContainer, schema: str) -> str:
+        """Get the connection URL for the PostgreSQL container."""
+        return f"{postgres_container.get_connection_url(driver='psycopg')}?options=-csearch_path%3D{schema}"
+
+    @pytest.fixture
+    def libpq_uri(self, postgres_container: PostgresContainer, schema: str) -> str:
+        """Get the connection URL for the PostgreSQL container."""
+        return f"{postgres_container.get_connection_url()}?options=-csearch_path%3D{schema}"
+
+    @pytest.fixture
+    def engine(self, systemdb_uri: str) -> Generator[sqlalchemy.Engine, None, None]:
         """Create a SQLAlchemy engine for the PostgreSQL container."""
-        engine = sqlalchemy.create_engine(postgres_container.get_connection_url(driver="psycopg"))
+        engine = sqlalchemy.create_engine(systemdb_uri)
         yield engine
         engine.dispose()
 
@@ -43,8 +66,8 @@ class TestBackwardsCompat:
         self,
         project: Project,
         engine: sqlalchemy.Engine,
-        postgres_container: PostgresContainer,
-        # session: sqlalchemy.orm.Session,
+        systemdb_uri: str,
+        libpq_uri: str,
     ) -> None:
         """Test backwards compatibility with the systemdb schema."""
         state_id = "systemdb_test_job"
@@ -55,7 +78,7 @@ class TestBackwardsCompat:
         migration_service.upgrade(silent=True)
 
         # Use the systemdb state backend
-        project.settings.set("database_uri", postgres_container.get_connection_url(driver="psycopg"))
+        project.settings.set("database_uri", systemdb_uri)
         project.settings.unset("state_backend.uri")
         with sqlalchemy.orm.Session(engine) as session:
             systemdb_manager = state_store_manager_from_project_settings(project.settings, session=session)
@@ -67,18 +90,27 @@ class TestBackwardsCompat:
         assert systemdb_state.partial_state == {"data": 1}
         assert systemdb_state.completed_state == {}
 
-        # # Use the new state backend
+        # Use the new state backend
         project.settings.unset("database_uri")
-        project.settings.set("state_backend.uri", postgres_container.get_connection_url())
+        project.settings.set("state_backend.uri", libpq_uri)
 
-        # Use as context manager requires Meltano 4.2+
+        # N.B. Use of the state backend as a context manager requires Meltano 4.2+
+
+        # The 'public' should not have state
+        project.settings.set("state_backend.postgresql.schema", "public")
         with state_store_manager_from_project_settings(project.settings) as new_manager:
             assert isinstance(new_manager, PostgreSQLStateStoreManager)
-            new_manager.set(state)
-
-            # Get the state using the new state backend
             new_state = new_manager.get(state_id)
-            assert new_state is not None
-            assert new_state.state_id == state_id
-            assert new_state.partial_state == {"data": 1}
-            assert new_state.completed_state == {}
+
+        assert new_state is None
+
+        # The schema in search_path should have state
+        project.settings.unset("state_backend.postgresql.schema")
+        with state_store_manager_from_project_settings(project.settings) as new_manager:
+            assert isinstance(new_manager, PostgreSQLStateStoreManager)
+            new_state = new_manager.get(state_id)
+
+        assert new_state is not None
+        assert new_state.state_id == state_id
+        assert new_state.partial_state == {"data": 1}
+        assert new_state.completed_state == {}
