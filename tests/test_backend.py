@@ -41,12 +41,14 @@ def postgres_container() -> Generator[PostgresContainer, None, None]:
     reason="Integration tests are only supported on Linux",
 )
 @pytest.mark.parametrize(
-    ("schema", "table"),
+    ("schema", "table", "schema_in_options"),
     (
-        (None, None),
-        ("test_schema", None),
-        (None, "test_table"),
-        ("test_schema", "test_table"),
+        pytest.param(None, None, False, id="no_schema_or_table"),
+        pytest.param("test_schema", None, False, id="schema_only"),
+        pytest.param(None, "test_table", False, id="table_only"),
+        pytest.param("test_schema", None, True, id="schema_in_options"),
+        pytest.param("test_schema", "test_table", False, id="schema_and_table"),
+        pytest.param("test_schema", "test_table", True, id="schema_in_options_and_table"),
     ),
 )
 class TestIntegration:
@@ -58,8 +60,14 @@ class TestIntegration:
         postgres_container: PostgresContainer,
         schema: str | None,
         table: str | None,
+        schema_in_options: bool,  # noqa: FBT001
     ) -> Generator[PostgreSQLStateStoreManager, None, None]:
         uri = postgres_container.get_connection_url()
+        kwargs = {}
+        if schema_in_options:
+            uri = f"{uri}?options=-csearch_path%3D{schema}"
+        else:
+            kwargs["schema"] = schema
 
         with psycopg.connect(uri) as conn, conn.cursor() as cursor:
             if schema:
@@ -70,21 +78,31 @@ class TestIntegration:
             uri=uri,
             host=postgres_container.get_container_host_ip(),
             port=int(postgres_container.get_exposed_port(5432)),
-            schema=schema,
             table=table,
+            **kwargs,
         ) as manager:
             yield manager
 
-    def _assert_table_identifier(self, identifier: Identifier, schema: str | None, table: str | None) -> None:
-        match schema, table:
-            case None, None:
+    def _assert_table_identifier(
+        self,
+        identifier: Identifier,
+        schema: str | None,
+        table: str | None,
+        schema_in_options: bool,  # noqa: FBT001
+    ) -> None:
+        match schema, table, schema_in_options:
+            case None, None, _:
                 assert identifier.as_string() == f'"{DEFAULT_TABLE_NAME}"'
-            case None, table:
+            case None, table, _:
                 assert identifier.as_string() == f'"{table}"'
-            case schema, None:
+            case schema, None, False:
                 assert identifier.as_string() == f'"{schema}"."{DEFAULT_TABLE_NAME}"'
-            case schema, table:
+            case schema, None, True:
+                assert identifier.as_string() == f'"{DEFAULT_TABLE_NAME}"'
+            case schema, table, False:
                 assert identifier.as_string() == f'"{schema}"."{table}"'
+            case schema, table, True:
+                assert identifier.as_string() == f'"{table}"'
             case _:  # pragma: no cover
                 msg = f"Unexpected schema and table combination: {schema}, {table}"
                 raise AssertionError(msg)
@@ -94,6 +112,7 @@ class TestIntegration:
         manager: PostgreSQLStateStoreManager,
         schema: str | None,
         table: str | None,
+        schema_in_options: bool,  # noqa: FBT001
     ) -> None:
         """Test setting and getting state with a real database."""
         state = MeltanoState(
@@ -112,7 +131,7 @@ class TestIntegration:
 
         # Check the table contents
         identifier = manager.table_identifier
-        self._assert_table_identifier(identifier, schema, table)
+        self._assert_table_identifier(identifier, schema, table, schema_in_options)
         with psycopg.connect(manager.conninfo) as conn, conn.cursor(row_factory=namedtuple_row) as cursor:
             cursor.execute(SQL("SELECT * FROM {table_identifier}").format(table_identifier=identifier))
             rows = cursor.fetchall()
