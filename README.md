@@ -35,7 +35,7 @@ To store state in PostgreSQL, set the `state_backend.uri` setting to a standard 
 postgresql://<user>:<password>@<host>:<port>/<database>?options=-csearch_path%3D<schema>
 ```
 
-The `?options=-csearch_path%3D<schema>` query parameter sets the schema where state tables will be created (defaults to `public` if omitted). `%3D` is the URL-encoded form of `=`.
+The `?options=-csearch_path%3D<schema>` query parameter sets the schema where state tables will be created. If omitted, the connection uses the server's default `search_path`. `%3D` is the URL-encoded form of `=`.
 
 State will be stored in a table that Meltano will create automatically:
 
@@ -61,7 +61,7 @@ state_backend:
     user: my_user
     password: my_password
     database: my_database
-    schema: my_schema  # Defaults to public if not specified
+    schema: my_schema  # Optional: defaults to the server's search_path if not specified
     sslmode: prefer    # Optional: prefer, require, disable, allow, verify-ca, verify-full
 ```
 
@@ -72,7 +72,7 @@ state_backend:
 - **user**: The username for authentication
 - **password**: The password for authentication
 - **database**: The database where state will be stored
-- **schema**: The schema where state tables will be created (defaults to public)
+- **schema**: The schema where state tables will be created (defaults to the server's search_path)
 - **sslmode**: SSL mode for the connection (default: prefer)
 
 #### Security Considerations

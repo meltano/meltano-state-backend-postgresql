@@ -209,7 +209,7 @@ class PostgreSQLStateStoreManager(StateStoreManager):
             database: PostgreSQL database name
             user: PostgreSQL username
             password: PostgreSQL password
-            schema: PostgreSQL schema name (default: public)
+            schema: PostgreSQL schema name (defaults to the server's search_path)
             sslmode: PostgreSQL SSL mode (default: prefer)
             table: PostgreSQL table name for state storage (default: state)
             kwargs: Additional keyword args to pass to parent
