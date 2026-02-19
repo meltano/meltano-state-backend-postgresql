@@ -58,7 +58,7 @@ class TestIntegration:
         postgres_container: PostgresContainer,
         schema: str | None,
         table: str | None,
-    ) -> PostgreSQLStateStoreManager:
+    ) -> Generator[PostgreSQLStateStoreManager, None, None]:
         uri = postgres_container.get_connection_url()
 
         with psycopg.connect(uri) as conn, conn.cursor() as cursor:
@@ -66,13 +66,14 @@ class TestIntegration:
                 # Create schema if it doesn't exist
                 cursor.execute(SQL("CREATE SCHEMA IF NOT EXISTS {schema}").format(schema=Identifier(schema)))
 
-        return PostgreSQLStateStoreManager(
+        with PostgreSQLStateStoreManager(
             uri=uri,
             host=postgres_container.get_container_host_ip(),
             port=int(postgres_container.get_exposed_port(5432)),
             schema=schema,
             table=table,
-        )
+        ) as manager:
+            yield manager
 
     def _assert_table_identifier(self, identifier: Identifier, schema: str | None, table: str | None) -> None:
         match schema, table:

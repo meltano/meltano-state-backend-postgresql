@@ -144,8 +144,8 @@ addopts = [
   "--strict-markers",
 ]
 filterwarnings = [
-  # "error",
-  # "once:The 'version' field in meltano.yml is deprecated:DeprecationWarning",
+  "error",
+  "once:The 'version' field in meltano.yml is deprecated:DeprecationWarning",
 ]
 log_level = "INFO"
 minversion = "9"
