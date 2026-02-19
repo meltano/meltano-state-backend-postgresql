@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import platform
 import shutil
@@ -8,6 +9,7 @@ from decimal import Decimal
 from typing import TYPE_CHECKING
 from unittest import mock
 
+import psycopg
 import pytest
 from meltano.core.project import Project
 from meltano.core.state_store import MeltanoState, state_store_manager_from_project_settings
@@ -15,9 +17,12 @@ from meltano.core.state_store.base import (
     MissingStateBackendSettingsError,
     StateIDLockedError,
 )
+from psycopg.conninfo import conninfo_to_dict
+from psycopg.rows import namedtuple_row
+from psycopg.sql import SQL, Identifier
 from testcontainers.postgres import PostgresContainer
 
-from meltano_state_backend_postgresql.backend import PostgreSQLStateStoreManager
+from meltano_state_backend_postgresql.backend import DEFAULT_TABLE_NAME, PostgreSQLStateStoreManager
 
 if TYPE_CHECKING:
     from collections.abc import Generator
@@ -31,30 +36,64 @@ def postgres_container() -> Generator[PostgresContainer, None, None]:
         yield postgres
 
 
-@pytest.fixture
-def manager(
-    postgres_container: PostgresContainer,
-) -> Generator[PostgreSQLStateStoreManager, None, None]:
-    """Create a PostgreSQLStateStoreManager connected to the test container."""
-    with PostgreSQLStateStoreManager(
-        uri=postgres_container.get_connection_url(),
-        host=postgres_container.get_container_host_ip(),
-        port=int(postgres_container.get_exposed_port(5432)),
-        user=postgres_container.username,
-        password=postgres_container.password,
-        database=postgres_container.dbname,
-    ) as obj:
-        yield obj
-
-
 @pytest.mark.skipif(
     os.environ.get("CI") == "true" and platform.system() != "Linux",
     reason="Integration tests are only supported on Linux",
 )
+@pytest.mark.parametrize(
+    ("schema", "table"),
+    (
+        (None, None),
+        ("test_schema", None),
+        (None, "test_table"),
+        ("test_schema", "test_table"),
+    ),
+)
 class TestIntegration:
     """Integration tests using a real PostgreSQL container."""
 
-    def test_set_and_get_state(self, manager: PostgreSQLStateStoreManager) -> None:
+    @pytest.fixture
+    def manager(
+        self,
+        postgres_container: PostgresContainer,
+        schema: str | None,
+        table: str | None,
+    ) -> PostgreSQLStateStoreManager:
+        uri = postgres_container.get_connection_url()
+
+        with psycopg.connect(uri) as conn, conn.cursor() as cursor:
+            if schema:
+                # Create schema if it doesn't exist
+                cursor.execute(SQL("CREATE SCHEMA IF NOT EXISTS {schema}").format(schema=Identifier(schema)))
+
+        return PostgreSQLStateStoreManager(
+            uri=uri,
+            host=postgres_container.get_container_host_ip(),
+            port=int(postgres_container.get_exposed_port(5432)),
+            schema=schema,
+            table=table,
+        )
+
+    def _assert_table_identifier(self, identifier: Identifier, schema: str | None, table: str | None) -> None:
+        match schema, table:
+            case None, None:
+                assert identifier.as_string() == f'"{DEFAULT_TABLE_NAME}"'
+            case None, table:
+                assert identifier.as_string() == f'"{table}"'
+            case schema, None:
+                assert identifier.as_string() == f'"{schema}"."{DEFAULT_TABLE_NAME}"'
+            case schema, table:
+                assert identifier.as_string() == f'"{schema}"."{table}"'
+            case _:  # pragma: no cover
+                msg = f"Unexpected schema and table combination: {schema}, {table}"
+                raise AssertionError(msg)
+
+    def test_set_and_get_state(
+        self,
+        manager: PostgreSQLStateStoreManager,
+        schema: str | None,
+        table: str | None,
+    ) -> None:
         """Test setting and getting state with a real database."""
         state = MeltanoState(
             state_id="integration_test_job",
@@ -69,6 +108,14 @@ class TestIntegration:
         assert retrieved.state_id == "integration_test_job"
         assert retrieved.partial_state == {"singer_state": {"position": 100}}
         assert retrieved.completed_state == {"singer_state": {"position": 50}}
+
+        # Check the table contents
+        identifier = manager.table_identifier
+        self._assert_table_identifier(identifier, schema, table)
+        with psycopg.connect(manager.conninfo) as conn, conn.cursor(row_factory=namedtuple_row) as cursor:
+            cursor.execute(SQL("SELECT * FROM {table_identifier}").format(table_identifier=identifier))
+            rows = cursor.fetchall()
+            assert len(rows) == 1
 
         # Cleanup
         manager.delete("integration_test_job")
@@ -243,18 +290,17 @@ def test_get_manager(project: Project) -> None:
 
     mock_ensure_tables.assert_called_once()
     assert isinstance(manager, PostgreSQLStateStoreManager)
-    assert (
-        manager.uri
-        == "postgresql://user:password@localhost:5432/meltano?options=-csearch_path%3Dpublic"
-    )
-    assert manager.host == "localhost"
-    assert manager.port == 5432
-    assert manager.user == "user"
-    assert manager.password == "password"  # noqa: S105
-    assert manager.database == "meltano"
-    assert manager.schema == "public"
-    assert manager.sslmode == "prefer"
-    assert manager.table_name == "state"
+    assert manager.uri == "postgresql://user:password@localhost:5432/meltano"
+    conninfo = conninfo_to_dict(manager.conninfo)
+    assert conninfo == {
+        "host": "localhost",
+        "port": "5432",
+        "user": "user",
+        "password": "password",
+        "dbname": "meltano",
+        "sslmode": "prefer",
+    }
+    assert manager.table_identifier.as_string() == '"state"'
 
 
 @pytest.mark.parametrize(
@@ -324,7 +370,7 @@ def subject(
     """Create PostgreSQLStateStoreManager instance with mocked connection."""
     mock_conn, mock_cursor = mock_connection
     manager = PostgreSQLStateStoreManager(
-        uri="postgresql://testuser:testpass@testhost:5432/testdb/testschema",
+        uri="postgresql://testuser:testpass@testhost:5432/testdb",
         host="testhost",
         port=5432,
         user="testuser",
@@ -638,16 +684,8 @@ def test_connection_defaults() -> None:
         # Access the connection property to trigger the connection
         _ = manager.connection
 
-        # Verify defaults were used
-        mock_connect.assert_called_with(
-            host="testhost",
-            port=5432,  # Default port
-            dbname="testdb",
-            user="testuser",
-            password="testpass",  # noqa: S106
-            sslmode="prefer",  # Default sslmode
-            autocommit=True,
-        )
+        # Verify psycopg.connect was called with the normalized conninfo string
+        mock_connect.assert_called_with(manager.conninfo, autocommit=True)
 
 
 def test_acquire_lock_max_retries_exceeded(
@@ -710,7 +748,7 @@ def test_uri_port_parsing() -> None:
         )
 
         # Verify port was parsed from URI
-        assert manager.port == 9999
+        assert conninfo_to_dict(manager.conninfo)["port"] == "9999"
 
 
 def test_explicit_schema_kwarg_overrides_uri() -> None:
@@ -731,7 +769,7 @@ def test_explicit_schema_kwarg_overrides_uri() -> None:
             schema="kwargschema",
         )
 
-        assert manager.schema == "kwargschema"
+        assert manager.table_identifier.as_string() == '"kwargschema"."state"'
 
 
 def test_context_manager_closes_connection() -> None:
@@ -804,7 +842,7 @@ def test_custom_table_name() -> None:
             table="custom_state_table",
         )
 
-        assert manager.table_name == "custom_state_table"
+        assert manager.table_identifier.as_string() == '"custom_state_table"'
 
 
 def test_default_table_name() -> None:
@@ -825,10 +863,10 @@ def test_default_table_name() -> None:
             database="testdb",
         )
 
-        assert manager.table_name == "state"
+        assert manager.table_identifier.as_string() == '"state"'
 
 
-def test_uri_schema_from_options_query_param() -> None:
+def test_uri_schema_from_options_query_param(caplog: pytest.LogCaptureFixture) -> None:
     """Test schema resolved from ?options=-csearch_path=... in the URI (catalog format)."""
     with mock.patch("psycopg.connect") as mock_connect:
         mock_conn = mock.Mock()
@@ -838,12 +876,18 @@ def test_uri_schema_from_options_query_param() -> None:
         mock_conn.cursor.return_value = mock_cursor_context
         mock_connect.return_value = mock_conn
 
-        manager = PostgreSQLStateStoreManager(
-            uri="postgresql://testuser:testpass@testhost/testdb?options=-csearch_path%3Dmyschema",
-        )
+        with caplog.at_level(logging.WARNING):
+            manager = PostgreSQLStateStoreManager(
+                uri="postgresql://testuser:testpass@testhost/testdb?options=-csearch_path%3Dmyschema",
+            )
 
-        assert manager.schema == "myschema"
-        assert manager.options == "-csearch_path=myschema"
+        assert caplog.messages == [
+            "No explicit table name provided, using default table name: state",
+            "No explicit schema provided, connection will use default search path",
+        ]
+
+        assert manager.table_identifier.as_string() == '"state"'
+        assert conninfo_to_dict(manager.conninfo).get("options") == "-csearch_path=myschema"
 
 
 def test_uri_sslmode_from_query_param() -> None:
@@ -860,7 +904,7 @@ def test_uri_sslmode_from_query_param() -> None:
             uri="postgresql://testuser:testpass@testhost/testdb?sslmode=require",
         )
 
-        assert manager.sslmode == "require"
+        assert conninfo_to_dict(manager.conninfo)["sslmode"] == "require"
 
 
 def test_options_forwarded_to_connect() -> None:
@@ -879,13 +923,4 @@ def test_options_forwarded_to_connect() -> None:
 
         _ = manager.connection
 
-        mock_connect.assert_called_with(
-            host="testhost",
-            port=5432,
-            dbname="testdb",
-            user="testuser",
-            password="testpass",  # noqa: S106
-            sslmode="prefer",
-            autocommit=True,
-            options="-csearch_path=myschema",
-        )
+        mock_connect.assert_called_with(manager.conninfo, autocommit=True)

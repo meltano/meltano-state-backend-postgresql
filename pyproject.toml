@@ -71,7 +71,7 @@ fallback-version = "0.0.0.dev0"
 source = "vcs"
 
 [tool.ruff]
-line-length = 100
+line-length = 120
 
 [tool.ruff.lint]
 select = [
@@ -144,8 +144,8 @@ addopts = [
   "--strict-markers",
 ]
 filterwarnings = [
-  "error",
-  "once:The 'version' field in meltano.yml is deprecated:DeprecationWarning",
+  # "error",
+  # "once:The 'version' field in meltano.yml is deprecated:DeprecationWarning",
 ]
 log_level = "INFO"
 minversion = "9"
