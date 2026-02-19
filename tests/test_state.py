@@ -77,8 +77,8 @@ def test_get_state_null_columns(
     subject: tuple[PostgreSQLStateStoreManager, mock.Mock],
     partial_raw: str | None,
     completed_raw: str | None,
-    expected_partial: dict,
-    expected_completed: dict,
+    expected_partial: dict[str, object],
+    expected_completed: dict[str, object],
 ) -> None:
     """NULL TEXT columns are returned as empty dicts."""
     manager, mock_cursor = subject
