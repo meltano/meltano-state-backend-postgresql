@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+import platform
 from typing import TYPE_CHECKING
 
 import pytest
@@ -17,8 +19,12 @@ if TYPE_CHECKING:
     from testcontainers.postgres import PostgresContainer
 
 
-class TestBackwardCompat:
-    """Test backward compatibility with the systemdb schema.
+@pytest.mark.skipif(
+    os.environ.get("CI") == "true" and platform.system() != "Linux",
+    reason="Integration tests are only supported on Linux",
+)
+class TestBackwardsCompat:
+    """Test backwards compatibility with the systemdb schema.
 
     1. Copies the fixture project to a temporary directory
     2. Runs systemdb migrations to create the Meltano-managed tables
