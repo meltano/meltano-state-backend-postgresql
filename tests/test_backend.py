@@ -132,8 +132,10 @@ class TestIntegration:
         # Check the table contents
         identifier = manager.table_identifier
         self._assert_table_identifier(identifier, schema, table, schema_in_options)
+
+        explicit = Identifier(schema, table or DEFAULT_TABLE_NAME) if schema else identifier
         with psycopg.connect(manager.conninfo) as conn, conn.cursor(row_factory=namedtuple_row) as cursor:
-            cursor.execute(SQL("SELECT * FROM {table_identifier}").format(table_identifier=identifier))
+            cursor.execute(SQL("SELECT * FROM {table_identifier}").format(table_identifier=explicit))
             rows = cursor.fetchall()
             assert len(rows) == 1
 
