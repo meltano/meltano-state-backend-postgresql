@@ -695,7 +695,7 @@ wheels = [
 [[package]]
 name = "meltano"
 version = "4.1.2"
-source = { registry = "https://pypi.org/simple" }
+source = { git = "https://github.com/meltano/meltano.git?rev=main#19ddf49ed3e6358df3f879bd20e8a1b348ad0895" }
 dependencies = [
     { name = "alembic" },
     { name = "anyio" },
@@ -726,9 +726,10 @@ dependencies = [
     { name = "uv" },
     { name = "virtualenv" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/61/4c/fae1c2a4841abcd1b8681cacb152d9b6cebac51e419305fe23c8f29ad306/meltano-4.1.2.tar.gz", hash = "sha256:aa544d525463d14ef84388937b28e7c5f1a4f35617a957cea4c254f77a87b611", size = 12772828, upload-time = "2026-02-03T03:26:25.964Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/b6/0d/9d20427b6b5fdeb48233ca500b6237ebde71616b0cbf455726b15812ae93/meltano-4.1.2-py3-none-any.whl", hash = "sha256:ad5230505723a4922b7efbf511bfdabe56854da3d4040b435da5afd91d1b1b5f", size = 399944, upload-time = "2026-02-03T03:26:23.919Z" },
+
+[package.optional-dependencies]
+postgres = [
+    { name = "psycopg", extra = ["binary"] },
 ]
 
 [[package]]
@@ -742,9 +743,11 @@ dependencies = [
 [package.dev-dependencies]
 dev = [
     { name = "coverage", extra = ["toml"] },
+    { name = "meltano", extra = ["postgres"] },
     { name = "mypy" },
     { name = "pytest" },
     { name = "ruff" },
+    { name = "sqlalchemy" },
     { name = "testcontainers" },
     { name = "ty" },
 ]
@@ -753,42 +756,52 @@ lint = [
 ]
 tests = [
     { name = "coverage", extra = ["toml"] },
+    { name = "meltano", extra = ["postgres"] },
     { name = "pytest" },
+    { name = "sqlalchemy" },
     { name = "testcontainers" },
 ]
 types = [
     { name = "coverage", extra = ["toml"] },
+    { name = "meltano", extra = ["postgres"] },
     { name = "mypy" },
     { name = "pytest" },
+    { name = "sqlalchemy" },
     { name = "testcontainers" },
     { name = "ty" },
 ]
 
 [package.metadata]
 requires-dist = [
-    { name = "meltano", specifier = ">=3.7" },
+    { name = "meltano", git = "https://github.com/meltano/meltano.git?rev=main" },
     { name = "psycopg", extras = ["binary"], specifier = ">=3.1,<4" },
 ]
 
 [package.metadata.requires-dev]
 dev = [
     { name = "coverage", extras = ["toml"], specifier = ">=7.13" },
+    { name = "meltano", extras = ["postgres"], git = "https://github.com/meltano/meltano.git?rev=main" },
     { name = "mypy", specifier = ">=1.19" },
     { name = "pytest", specifier = ">=9" },
     { name = "ruff", specifier = ">=0.15" },
+    { name = "sqlalchemy", specifier = ">=2" },
     { name = "testcontainers", extras = ["postgres"], specifier = ">=4" },
     { name = "ty", specifier = ">=0.0.14" },
 ]
 lint = [{ name = "ruff", specifier = ">=0.15" }]
 tests = [
     { name = "coverage", extras = ["toml"], specifier = ">=7.13" },
+    { name = "meltano", extras = ["postgres"], git = "https://github.com/meltano/meltano.git?rev=main" },
     { name = "pytest", specifier = ">=9" },
+    { name = "sqlalchemy", specifier = ">=2" },
     { name = "testcontainers", extras = ["postgres"], specifier = ">=4" },
 ]
 types = [
     { name = "coverage", extras = ["toml"], specifier = ">=7.13" },
+    { name = "meltano", extras = ["postgres"], git = "https://github.com/meltano/meltano.git?rev=main" },
     { name = "mypy", specifier = ">=1.19" },
     { name = "pytest", specifier = ">=9" },
+    { name = "sqlalchemy", specifier = ">=2" },
     { name = "testcontainers", extras = ["postgres"], specifier = ">=4" },
     { name = "ty", specifier = ">=0.0.14" },
 ]

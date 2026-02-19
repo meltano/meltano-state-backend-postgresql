@@ -64,7 +64,6 @@ POSTGRESQL_PORT = SettingDefinition(
     label="PostgreSQL Port",
     description="PostgreSQL server port",
     kind=SettingKind.INTEGER,
-    value=5432,
     env_specific=True,
 )
 
@@ -106,7 +105,6 @@ POSTGRESQL_SSLMODE = SettingDefinition(
     label="PostgreSQL SSL Mode",
     description="PostgreSQL SSL mode",
     kind=SettingKind.STRING,
-    value="prefer",
     env_specific=True,
 )
 
@@ -115,7 +113,6 @@ POSTGRESQL_TABLE = SettingDefinition(
     label="PostgreSQL Table",
     description="PostgreSQL table name for state storage",
     kind=SettingKind.STRING,
-    value="state",
     env_specific=True,
 )
 

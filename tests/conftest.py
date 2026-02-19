@@ -30,7 +30,7 @@ def project(tmp_path: Path) -> Project:
         path,
         ignore=shutil.ignore_patterns(".meltano/**"),
     )
-    return Project.find(path.resolve())  # type: ignore[no-any-return]
+    return Project.find(path.resolve(), activate=False)  # type: ignore[no-any-return]
 
 
 @pytest.fixture

@@ -51,20 +51,21 @@ class TestIntegration:
         else:
             kwargs["schema"] = schema
 
-        with psycopg.connect(uri) as conn, conn.cursor() as cursor:
+        with psycopg.connect(uri, autocommit=True) as conn:
             if schema:
-                cursor.execute(
-                    SQL("CREATE SCHEMA IF NOT EXISTS {schema}").format(schema=Identifier(schema)),
-                )
+                conn.execute(SQL("CREATE SCHEMA {schema}").format(schema=Identifier(schema)))
 
-        with PostgreSQLStateStoreManager(
-            uri=uri,
-            host=postgres_container.get_container_host_ip(),
-            port=int(postgres_container.get_exposed_port(5432)),
-            table=table,
-            **kwargs,
-        ) as manager:
-            yield manager
+            with PostgreSQLStateStoreManager(
+                uri=uri,
+                host=postgres_container.get_container_host_ip(),
+                port=int(postgres_container.get_exposed_port(5432)),
+                table=table,
+                **kwargs,
+            ) as manager:
+                yield manager
+
+            if schema:
+                conn.execute(SQL("DROP SCHEMA {schema} CASCADE").format(schema=Identifier(schema)))
 
     def _assert_table_identifier(
         self,
