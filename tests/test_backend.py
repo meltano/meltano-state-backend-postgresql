@@ -243,7 +243,10 @@ def test_get_manager(project: Project) -> None:
 
     mock_ensure_tables.assert_called_once()
     assert isinstance(manager, PostgreSQLStateStoreManager)
-    assert manager.uri == "postgresql://user:password@localhost:5432/meltano?options=-csearch_path%3Dpublic"
+    assert (
+        manager.uri
+        == "postgresql://user:password@localhost:5432/meltano?options=-csearch_path%3Dpublic"
+    )
     assert manager.host == "localhost"
     assert manager.port == 5432
     assert manager.user == "user"
