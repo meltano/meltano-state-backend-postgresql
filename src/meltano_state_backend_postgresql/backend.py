@@ -9,7 +9,6 @@ from contextlib import contextmanager
 from functools import cached_property
 from time import sleep
 from typing import TYPE_CHECKING, Any
-from urllib.parse import urlparse
 
 import psycopg
 from meltano.core.error import MeltanoError
@@ -20,6 +19,7 @@ from meltano.core.state_store.base import (
     StateIDLockedError,
     StateStoreManager,
 )
+from psycopg.conninfo import conninfo_to_dict
 from psycopg.rows import scalar_row, tuple_row
 from psycopg.sql import SQL, Identifier
 
@@ -157,38 +157,40 @@ class PostgreSQLStateStoreManager(StateStoreManager):
         """
         super().__init__(**kwargs)
         self.uri = uri
-        parsed = urlparse(uri)
+        params = conninfo_to_dict(uri)
 
         # Extract connection details from URI and parameters
-        self.host = host or parsed.hostname or "localhost"
+        self.host = host or params.get("host") or "localhost"
+        self.port = port if port is not None else int(params.get("port", 5432))
 
-        # Handle port from URI or parameter
-        if port is not None:
-            self.port = port
-        elif parsed.port is not None:
-            self.port = parsed.port
-        else:
-            self.port = 5432
-
-        self.user = user or parsed.username
+        self.user = user or params.get("user")
         if not self.user:
             msg = "PostgreSQL user is required"
             raise MissingStateBackendSettingsError(msg)
 
-        self.password = password or parsed.password
+        self.password = password or params.get("password")
         if not self.password:
             msg = "PostgreSQL password is required"
             raise MissingStateBackendSettingsError(msg)
 
-        # Extract database from path
-        path_parts = parsed.path.strip("/").split("/") if parsed.path else []
-        self.database = database or (path_parts[0] if path_parts else None)
+        self.database = database or params.get("dbname")
         if not self.database:
             msg = "PostgreSQL database is required"
             raise MissingStateBackendSettingsError(msg)
 
-        self.schema = schema or (path_parts[1] if len(path_parts) > 1 else "public")
-        self.sslmode = sslmode or "prefer"
+        # options is a standard libpq parameter; extract search_path from it
+        # as a schema fallback (e.g. -csearch_path=myschema)
+        self.options = params.get("options")
+        search_path_from_options = None
+        if self.options:
+            for part in self.options.split():
+                if part.startswith("-c") and "=" in part[2:]:
+                    k, v = part[2:].split("=", 1)
+                    if k == "search_path":
+                        search_path_from_options = v
+
+        self.schema = schema or search_path_from_options or "public"
+        self.sslmode = sslmode or params.get("sslmode") or "prefer"
         self.table_name = table or "state"
 
         self._ensure_tables()
@@ -209,6 +211,7 @@ class PostgreSQLStateStoreManager(StateStoreManager):
             password=self.password,
             sslmode=self.sslmode,
             autocommit=True,
+            **({"options": self.options} if self.options else {}),
         )
 
     def _ensure_tables(self) -> None:

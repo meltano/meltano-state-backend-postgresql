@@ -243,7 +243,7 @@ def test_get_manager(project: Project) -> None:
 
     mock_ensure_tables.assert_called_once()
     assert isinstance(manager, PostgreSQLStateStoreManager)
-    assert manager.uri == "postgresql://user:password@localhost:5432/meltano/public"
+    assert manager.uri == "postgresql://user:password@localhost:5432/meltano?options=-csearch_path%3Dpublic"
     assert manager.host == "localhost"
     assert manager.port == 5432
     assert manager.user == "user"
@@ -710,8 +710,8 @@ def test_uri_port_parsing() -> None:
         assert manager.port == 9999
 
 
-def test_uri_schema_parsing() -> None:
-    """Test URI schema parsing from path."""
+def test_explicit_schema_kwarg_overrides_uri() -> None:
+    """Test that an explicit schema kwarg takes priority over ?options= in the URI."""
     with mock.patch("psycopg.connect") as mock_connect:
         mock_conn = mock.Mock()
         mock_cursor = mock.Mock()
@@ -722,13 +722,13 @@ def test_uri_schema_parsing() -> None:
         mock_connect.return_value = mock_conn
 
         manager = PostgreSQLStateStoreManager(
-            uri="postgresql://testuser:testpass@testhost/testdb/myschema",
+            uri="postgresql://testuser:testpass@testhost/testdb?options=-csearch_path%3Durischema",
             user="testuser",
             password="testpass",  # noqa: S106
+            schema="kwargschema",
         )
 
-        # Verify schema was parsed from URI path
-        assert manager.schema == "myschema"
+        assert manager.schema == "kwargschema"
 
 
 def test_context_manager_closes_connection() -> None:
@@ -823,3 +823,66 @@ def test_default_table_name() -> None:
         )
 
         assert manager.table_name == "state"
+
+
+def test_uri_schema_from_options_query_param() -> None:
+    """Test schema resolved from ?options=-csearch_path=... in the URI (catalog format)."""
+    with mock.patch("psycopg.connect") as mock_connect:
+        mock_conn = mock.Mock()
+        mock_cursor_context = mock.Mock()
+        mock_cursor_context.__enter__ = mock.Mock(return_value=mock.Mock())
+        mock_cursor_context.__exit__ = mock.Mock(return_value=None)
+        mock_conn.cursor.return_value = mock_cursor_context
+        mock_connect.return_value = mock_conn
+
+        manager = PostgreSQLStateStoreManager(
+            uri="postgresql://testuser:testpass@testhost/testdb?options=-csearch_path%3Dmyschema",
+        )
+
+        assert manager.schema == "myschema"
+        assert manager.options == "-csearch_path=myschema"
+
+
+def test_uri_sslmode_from_query_param() -> None:
+    """Test sslmode read from URI query param."""
+    with mock.patch("psycopg.connect") as mock_connect:
+        mock_conn = mock.Mock()
+        mock_cursor_context = mock.Mock()
+        mock_cursor_context.__enter__ = mock.Mock(return_value=mock.Mock())
+        mock_cursor_context.__exit__ = mock.Mock(return_value=None)
+        mock_conn.cursor.return_value = mock_cursor_context
+        mock_connect.return_value = mock_conn
+
+        manager = PostgreSQLStateStoreManager(
+            uri="postgresql://testuser:testpass@testhost/testdb?sslmode=require",
+        )
+
+        assert manager.sslmode == "require"
+
+
+def test_options_forwarded_to_connect() -> None:
+    """Test that options from the URI are forwarded to psycopg.connect."""
+    with mock.patch("psycopg.connect") as mock_connect:
+        mock_conn = mock.Mock()
+        mock_cursor_context = mock.Mock()
+        mock_cursor_context.__enter__ = mock.Mock(return_value=mock.Mock())
+        mock_cursor_context.__exit__ = mock.Mock(return_value=None)
+        mock_conn.cursor.return_value = mock_cursor_context
+        mock_connect.return_value = mock_conn
+
+        manager = PostgreSQLStateStoreManager(
+            uri="postgresql://testuser:testpass@testhost/testdb?options=-csearch_path%3Dmyschema",
+        )
+
+        _ = manager.connection
+
+        mock_connect.assert_called_with(
+            host="testhost",
+            port=5432,
+            dbname="testdb",
+            user="testuser",
+            password="testpass",  # noqa: S106
+            sslmode="prefer",
+            autocommit=True,
+            options="-csearch_path=myschema",
+        )
