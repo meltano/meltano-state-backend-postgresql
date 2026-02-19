@@ -55,7 +55,7 @@ POSTGRESQL_HOST = SettingDefinition(
     name="state_backend.postgresql.host",
     label="PostgreSQL Host",
     description="PostgreSQL server hostname",
-    kind=SettingKind.STRING,
+    kind=SettingKind.STRING,  # ty: ignore[invalid-argument-type]
     env_specific=True,
 )
 
@@ -63,7 +63,7 @@ POSTGRESQL_PORT = SettingDefinition(
     name="state_backend.postgresql.port",
     label="PostgreSQL Port",
     description="PostgreSQL server port",
-    kind=SettingKind.INTEGER,
+    kind=SettingKind.INTEGER,  # ty: ignore[invalid-argument-type]
     env_specific=True,
 )
 
@@ -71,7 +71,7 @@ POSTGRESQL_DATABASE = SettingDefinition(
     name="state_backend.postgresql.database",
     label="PostgreSQL Database",
     description="PostgreSQL database name",
-    kind=SettingKind.STRING,
+    kind=SettingKind.STRING,  # ty: ignore[invalid-argument-type]
     env_specific=True,
 )
 
@@ -79,7 +79,7 @@ POSTGRESQL_USER = SettingDefinition(
     name="state_backend.postgresql.user",
     label="PostgreSQL User",
     description="PostgreSQL username",
-    kind=SettingKind.STRING,
+    kind=SettingKind.STRING,  # ty: ignore[invalid-argument-type]
     env_specific=True,
 )
 
@@ -87,7 +87,7 @@ POSTGRESQL_PASSWORD = SettingDefinition(
     name="state_backend.postgresql.password",
     label="PostgreSQL Password",
     description="PostgreSQL password",
-    kind=SettingKind.STRING,
+    kind=SettingKind.STRING,  # ty: ignore[invalid-argument-type]
     sensitive=True,
     env_specific=True,
 )
@@ -96,7 +96,7 @@ POSTGRESQL_SCHEMA = SettingDefinition(
     name="state_backend.postgresql.schema",
     label="PostgreSQL Schema",
     description="PostgreSQL schema name",
-    kind=SettingKind.STRING,
+    kind=SettingKind.STRING,  # ty: ignore[invalid-argument-type]
     env_specific=True,
 )
 
@@ -104,7 +104,7 @@ POSTGRESQL_SSLMODE = SettingDefinition(
     name="state_backend.postgresql.sslmode",
     label="PostgreSQL SSL Mode",
     description="PostgreSQL SSL mode",
-    kind=SettingKind.STRING,
+    kind=SettingKind.STRING,  # ty: ignore[invalid-argument-type]
     env_specific=True,
 )
 
@@ -112,7 +112,7 @@ POSTGRESQL_TABLE = SettingDefinition(
     name="state_backend.postgresql.table",
     label="PostgreSQL Table",
     description="PostgreSQL table name for state storage",
-    kind=SettingKind.STRING,
+    kind=SettingKind.STRING,  # ty: ignore[invalid-argument-type]
     env_specific=True,
 )
 
