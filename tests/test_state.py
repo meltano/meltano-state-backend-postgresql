@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-from decimal import Decimal
 from typing import TYPE_CHECKING
 from unittest import mock
 
@@ -194,7 +193,7 @@ def test_acquire_lock_retry(
 
     with (
         mock.patch("meltano_state_backend_postgresql.backend.sleep"),
-        manager.acquire_lock("test_job", retry_seconds=0.01),  # type: ignore[arg-type]
+        manager.acquire_lock("test_job", retry_seconds=0.01),
     ):
         pass
 
@@ -208,7 +207,7 @@ def test_acquire_lock_max_retries_exceeded(
     manager, mock_cursor = subject
     mock_cursor.fetchone.return_value = False
 
-    retry_seconds = Decimal("0.01")
+    retry_seconds = 0.01
 
     with (  # noqa: SIM117
         mock.patch("meltano_state_backend_postgresql.backend.sleep") as mock_sleep,
@@ -217,7 +216,7 @@ def test_acquire_lock_max_retries_exceeded(
             match="Could not acquire lock for state_id: test_job",
         ),
     ):
-        with manager.acquire_lock("test_job", retry_seconds=retry_seconds):  # type: ignore[arg-type]
+        with manager.acquire_lock("test_job", retry_seconds=retry_seconds):
             pass  # pragma: no cover
 
     assert mock_sleep.call_count == int(30 / retry_seconds) - 1
@@ -232,7 +231,7 @@ def test_acquire_lock_multiple_retries_then_success(
 
     with (
         mock.patch("meltano_state_backend_postgresql.backend.sleep") as mock_sleep,
-        manager.acquire_lock("test_job", retry_seconds=0.01),  # type: ignore[arg-type]
+        manager.acquire_lock("test_job", retry_seconds=0.01),
     ):
         assert mock_sleep.call_count == 3
         mock_sleep.assert_called_with(0.01)

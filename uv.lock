@@ -695,7 +695,7 @@ wheels = [
 [[package]]
 name = "meltano"
 version = "4.1.2"
-source = { git = "https://github.com/meltano/meltano.git?rev=main#19ddf49ed3e6358df3f879bd20e8a1b348ad0895" }
+source = { git = "https://github.com/meltano/meltano.git?rev=main#229ebda82a08452b763672cc3c29bea9af2c5662" }
 dependencies = [
     { name = "alembic" },
     { name = "anyio" },
