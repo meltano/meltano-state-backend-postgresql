@@ -88,7 +88,7 @@ class TestIntegration:
             case schema, table, True:
                 assert identifier.as_string() == f'"{table}"'
             case _:  # pragma: no cover
-                msg = f"Unexpected schema and table combination: {schema}, {table}"
+                msg = f"Unexpected schema and table combination: {schema}, {table}"  # type: ignore[unreachable]
                 raise AssertionError(msg)
 
     def test_set_and_get_state(
