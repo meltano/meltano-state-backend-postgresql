@@ -9,7 +9,7 @@ from collections.abc import Generator, Iterable
 from contextlib import contextmanager
 from functools import cached_property
 from time import sleep
-from typing import TYPE_CHECKING, Any, TypedDict, cast
+from typing import TYPE_CHECKING, Any
 
 import psycopg
 from meltano.core.error import MeltanoError
@@ -23,6 +23,7 @@ from meltano.core.state_store.base import (
 from psycopg.conninfo import conninfo_to_dict, make_conninfo
 from psycopg.rows import scalar_row, tuple_row
 from psycopg.sql import SQL, Identifier
+from typing_extensions import override
 
 if TYPE_CHECKING:
     from collections.abc import Generator, Iterable
@@ -34,18 +35,6 @@ if TYPE_CHECKING:
 DEFAULT_TABLE_NAME = "state"
 
 logger = logging.getLogger(__name__)
-
-
-class _PostgresConnInfoParams(TypedDict, total=True):
-    """Parameters for the PostgreSQL connection info."""
-
-    dbname: str
-    host: str | None
-    port: int | None
-    user: str | None
-    password: str | None
-    sslmode: str | None
-    options: str | None
 
 
 class PostgresStateBackendError(MeltanoError):
@@ -130,7 +119,7 @@ def conninfo_from_params(
 ) -> str:
     """Create a PostgreSQL connection info string from a URI and optional parameters."""
     # Parse the URI then apply any explicit overrides
-    params = cast("_PostgresConnInfoParams", conninfo_to_dict(uri))
+    params: dict[str, str | int | None] = conninfo_to_dict(uri)
     if host:
         params["host"] = host
     if port is not None:
@@ -158,13 +147,16 @@ def conninfo_from_params(
     # Apply defaults for optional params
     params.setdefault("host", "localhost")
     params.setdefault("sslmode", "prefer")
-    return make_conninfo(**params)
+    return make_conninfo(conninfo="", **params)
 
 
 class PostgreSQLStateStoreManager(StateStoreManager):
     """State backend for PostgreSQL."""
 
-    label: str = "PostgreSQL"
+    @property
+    @override
+    def label(self) -> str:
+        return "PostgreSQL"  # pragma: no cover
 
     def __enter__(self) -> PostgreSQLStateStoreManager:
         """Enter the context manager.
@@ -175,6 +167,7 @@ class PostgreSQLStateStoreManager(StateStoreManager):
         """
         return self
 
+    @override
     def __exit__(
         self,
         exc_type: type[BaseException] | None,
@@ -184,6 +177,7 @@ class PostgreSQLStateStoreManager(StateStoreManager):
         """Exit the context manager, closing the connection."""
         self.close()
 
+    @override
     def close(self) -> None:
         """Close the PostgreSQL connection if it has been opened."""
         if "connection" in self.__dict__:
@@ -270,6 +264,7 @@ class PostgreSQLStateStoreManager(StateStoreManager):
             ).format(table_identifier=self.table_identifier)
             cursor.execute(query)
 
+    @override
     def set(self, state: MeltanoState) -> None:
         """Set the job state for the given state_id.
 
@@ -295,6 +290,7 @@ class PostgreSQLStateStoreManager(StateStoreManager):
             ).format(table_identifier=self.table_identifier)
             cursor.execute(query, (state.state_id, partial_json, completed_json))
 
+    @override
     def get(self, state_id: str) -> MeltanoState | None:
         """Get the job state for the given state_id.
 
@@ -330,6 +326,7 @@ class PostgreSQLStateStoreManager(StateStoreManager):
                 completed_state=json.loads(completed_state) if completed_state is not None else {},
             )
 
+    @override
     def delete(self, state_id: str) -> None:
         """Delete state for the given state_id.
 
@@ -345,6 +342,7 @@ class PostgreSQLStateStoreManager(StateStoreManager):
             ).format(table_identifier=self.table_identifier)
             cursor.execute(query, (state_id,))
 
+    @override
     def clear_all(self) -> int:
         """Clear all states.
 
@@ -419,6 +417,7 @@ class PostgreSQLStateStoreManager(StateStoreManager):
         hash_bytes = hashlib.md5(state_id.encode()).digest()[:8]  # noqa: S324
         return int.from_bytes(hash_bytes, byteorder="big", signed=True)
 
+    @override
     @contextmanager
     def acquire_lock(
         self,
