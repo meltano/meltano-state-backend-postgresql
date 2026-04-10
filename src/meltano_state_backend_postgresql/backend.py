@@ -415,7 +415,7 @@ class PostgreSQLStateStoreManager(StateStoreManager):
         self,
         state_id: str,
         *,
-        retry_seconds: int = 1,
+        retry_seconds: float = 1,
     ) -> Generator[None, None, None]:
         """Acquire a lock for the given job's state using PostgreSQL advisory locks.
 
@@ -431,8 +431,8 @@ class PostgreSQLStateStoreManager(StateStoreManager):
 
         """
         lock_key = self._state_id_to_lock_key(state_id)
-        max_seconds = 30
-        seconds_waited = 0
+        max_seconds = 30.0
+        seconds_waited = 0.0
 
         while seconds_waited < max_seconds:  # pragma: no branch
             with self.connection.cursor(row_factory=scalar_row) as cursor:
