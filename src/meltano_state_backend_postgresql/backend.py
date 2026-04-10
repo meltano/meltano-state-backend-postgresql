@@ -9,7 +9,7 @@ from collections.abc import Generator, Iterable
 from contextlib import contextmanager
 from functools import cached_property
 from time import sleep
-from typing import TYPE_CHECKING, Any, TypedDict
+from typing import TYPE_CHECKING, Any, TypedDict, cast
 
 import psycopg
 from meltano.core.error import MeltanoError
@@ -26,6 +26,7 @@ from psycopg.sql import SQL, Identifier
 
 if TYPE_CHECKING:
     from collections.abc import Generator, Iterable
+    from types import TracebackType
 
     from psycopg.rows import TupleRow
 
@@ -55,7 +56,7 @@ POSTGRESQL_HOST = SettingDefinition(
     name="state_backend.postgresql.host",
     label="PostgreSQL Host",
     description="PostgreSQL server hostname",
-    kind=SettingKind.STRING,  # ty: ignore[invalid-argument-type]
+    kind=SettingKind.STRING,
     env_specific=True,
 )
 
@@ -63,7 +64,7 @@ POSTGRESQL_PORT = SettingDefinition(
     name="state_backend.postgresql.port",
     label="PostgreSQL Port",
     description="PostgreSQL server port",
-    kind=SettingKind.INTEGER,  # ty: ignore[invalid-argument-type]
+    kind=SettingKind.INTEGER,
     env_specific=True,
 )
 
@@ -71,7 +72,7 @@ POSTGRESQL_DATABASE = SettingDefinition(
     name="state_backend.postgresql.database",
     label="PostgreSQL Database",
     description="PostgreSQL database name",
-    kind=SettingKind.STRING,  # ty: ignore[invalid-argument-type]
+    kind=SettingKind.STRING,
     env_specific=True,
 )
 
@@ -79,7 +80,7 @@ POSTGRESQL_USER = SettingDefinition(
     name="state_backend.postgresql.user",
     label="PostgreSQL User",
     description="PostgreSQL username",
-    kind=SettingKind.STRING,  # ty: ignore[invalid-argument-type]
+    kind=SettingKind.STRING,
     env_specific=True,
 )
 
@@ -87,7 +88,7 @@ POSTGRESQL_PASSWORD = SettingDefinition(
     name="state_backend.postgresql.password",
     label="PostgreSQL Password",
     description="PostgreSQL password",
-    kind=SettingKind.STRING,  # ty: ignore[invalid-argument-type]
+    kind=SettingKind.STRING,
     sensitive=True,
     env_specific=True,
 )
@@ -96,7 +97,7 @@ POSTGRESQL_SCHEMA = SettingDefinition(
     name="state_backend.postgresql.schema",
     label="PostgreSQL Schema",
     description="PostgreSQL schema name",
-    kind=SettingKind.STRING,  # ty: ignore[invalid-argument-type]
+    kind=SettingKind.STRING,
     env_specific=True,
 )
 
@@ -104,7 +105,7 @@ POSTGRESQL_SSLMODE = SettingDefinition(
     name="state_backend.postgresql.sslmode",
     label="PostgreSQL SSL Mode",
     description="PostgreSQL SSL mode",
-    kind=SettingKind.STRING,  # ty: ignore[invalid-argument-type]
+    kind=SettingKind.STRING,
     env_specific=True,
 )
 
@@ -112,7 +113,7 @@ POSTGRESQL_TABLE = SettingDefinition(
     name="state_backend.postgresql.table",
     label="PostgreSQL Table",
     description="PostgreSQL table name for state storage",
-    kind=SettingKind.STRING,  # ty: ignore[invalid-argument-type]
+    kind=SettingKind.STRING,
     env_specific=True,
 )
 
@@ -129,7 +130,7 @@ def conninfo_from_params(
 ) -> str:
     """Create a PostgreSQL connection info string from a URI and optional parameters."""
     # Parse the URI then apply any explicit overrides
-    params: _PostgresConnInfoParams = conninfo_to_dict(uri)  # type: ignore[assignment]
+    params = cast("_PostgresConnInfoParams", conninfo_to_dict(uri))
     if host:
         params["host"] = host
     if port is not None:
@@ -174,7 +175,12 @@ class PostgreSQLStateStoreManager(StateStoreManager):
         """
         return self
 
-    def __exit__(self, *args: object) -> None:
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> None:
         """Exit the context manager, closing the connection."""
         self.close()
 
@@ -353,7 +359,10 @@ class PostgreSQLStateStoreManager(StateStoreManager):
                 """
             ).format(table_identifier=self.table_identifier)
             cursor.execute(query)
-            count = cursor.fetchone()[0]  # type: ignore[index]
+            row = cursor.fetchone()
+            assert row is not None, "Got an empty result from the database"  # noqa: S101
+
+            count = row[0]
             query = SQL(
                 """\
                 TRUNCATE TABLE {table_identifier}
