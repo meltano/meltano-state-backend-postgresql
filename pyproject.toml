@@ -142,8 +142,6 @@ convention = "google"
 addopts = [
   "--durations=10",
   "-ra",
-  "--strict-config",
-  "--strict-markers",
 ]
 filterwarnings = [
   "error",
@@ -152,7 +150,7 @@ filterwarnings = [
 log_level = "INFO"
 minversion = "9"
 testpaths = ["tests"]
-xfail_strict = true
+strict = true
 
 [tool.coverage.paths]
 package = [
@@ -176,20 +174,18 @@ exclude_also = [
 fail_under = 100
 
 [tool.tox]
-min_version = "4.22"
-requires = [ "tox", "tox-uv" ]
+requires = [ "tox>=4.52", "tox-uv" ]
 env_list = [
   "types",
   "lint",
-  "3.14",
-  "3.13",
-  "3.12",
-  "3.11",
-  "3.10",
+  { product = [
+    { prefix = "3.", start = 10 },
+  ] },
   "coverage",
 ]
 
 [tool.tox.env_run_base]
+description = "run tests on Python {py_dot_ver}"
 runner = "uv-venv-lock-runner"
 pass_env = [
   "CI",
@@ -198,12 +194,9 @@ dependency_groups = [ "tests" ]
 commands = [ [ "coverage", "run", "-m", "pytest", { replace = "posargs", default = [ "tests" ], extend = true } ] ]
 
 [tool.tox.env.coverage]
+description = "compute code coverage"
 depends = [
-  "3.10",
-  "3.11",
-  "3.12",
-  "3.13",
-  "3.14",
+  "3.*",
 ]
 dependency_groups = [ "tests" ]
 commands = [
@@ -213,6 +206,7 @@ commands = [
 ]
 
 [tool.tox.env.lint]
+description = "lint & format"
 dependency_groups = [ "lint" ]
 skip_install = true
 commands = [
@@ -221,6 +215,7 @@ commands = [
 ]
 
 [tool.tox.env.types]
+description = "type checking"
 dependency_groups = [ "tests", "types" ]
 commands = [
   [
