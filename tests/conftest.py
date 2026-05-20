@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import shutil
+from importlib.metadata import version
 from typing import TYPE_CHECKING
 from unittest import mock
 
@@ -13,6 +14,11 @@ from meltano_state_backend_postgresql.backend import PostgreSQLStateStoreManager
 if TYPE_CHECKING:
     from collections.abc import Generator
     from pathlib import Path
+
+
+def pytest_report_header() -> list[str]:
+    """Add Meltano version to test report header."""
+    return [f"Meltano v{version('meltano')}"]
 
 
 @pytest.fixture(scope="module")
@@ -28,7 +34,7 @@ def project(tmp_path: Path) -> Project:
     shutil.copytree(
         "fixtures/project",
         path,
-        ignore=shutil.ignore_patterns(".meltano/**"),
+        ignore=shutil.ignore_patterns(".meltano"),
     )
     return Project.find(path.resolve(), activate=False)  # type: ignore[no-any-return]
 
