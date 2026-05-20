@@ -7,7 +7,7 @@ import json
 import logging
 from collections.abc import Generator, Iterable
 from contextlib import contextmanager
-from functools import cached_property
+from importlib.metadata import version
 from time import sleep
 from typing import TYPE_CHECKING, Any
 
@@ -20,6 +20,7 @@ from meltano.core.state_store.base import (
     StateIDLockedError,
     StateStoreManager,
 )
+from packaging.version import Version
 from psycopg.conninfo import conninfo_to_dict, make_conninfo
 from psycopg.rows import scalar_row, tuple_row
 from psycopg.sql import SQL, Identifier
@@ -158,31 +159,6 @@ class PostgreSQLStateStoreManager(StateStoreManager):
     def label(self) -> str:
         return "PostgreSQL"  # pragma: no cover
 
-    def __enter__(self) -> PostgreSQLStateStoreManager:
-        """Enter the context manager.
-
-        Returns:
-            The manager instance.
-
-        """
-        return self
-
-    @override
-    def __exit__(
-        self,
-        exc_type: type[BaseException] | None,
-        exc_val: BaseException | None,
-        exc_tb: TracebackType | None,
-    ) -> None:
-        """Exit the context manager, closing the connection."""
-        self.close()
-
-    @override
-    def close(self) -> None:
-        """Close the PostgreSQL connection if it has been opened."""
-        if "connection" in self.__dict__:
-            self.connection.close()
-
     def __init__(
         self,
         uri: str,
@@ -237,9 +213,10 @@ class PostgreSQLStateStoreManager(StateStoreManager):
         else:
             self.table_identifier = Identifier(schema, table)
 
+        self._connection: psycopg.Connection[TupleRow] | None = None
         self._ensure_tables()
 
-    @cached_property
+    @property
     def connection(self) -> psycopg.Connection[TupleRow]:
         """Get a PostgreSQL connection.
 
@@ -247,7 +224,16 @@ class PostgreSQLStateStoreManager(StateStoreManager):
             A PostgreSQL connection object.
 
         """
-        return psycopg.connect(self.conninfo, autocommit=True)
+        if self._connection is not None:
+            return self._connection
+
+        self._connection = psycopg.connect(self.conninfo, autocommit=True)
+        return self._connection
+
+    @connection.setter
+    def connection(self, value: psycopg.Connection[TupleRow]) -> None:
+        """Set the PostgreSQL connection (for testing/mocking)."""
+        self._connection = value
 
     def _ensure_tables(self) -> None:
         """Ensure the state table exists."""
@@ -369,6 +355,7 @@ class PostgreSQLStateStoreManager(StateStoreManager):
             cursor.execute(query)
             return count  # type: ignore[no-any-return]
 
+    @override
     def get_state_ids(self, pattern: str | None = None) -> Iterable[str]:
         """Get all state_ids available in this state store manager.
 
@@ -399,6 +386,35 @@ class PostgreSQLStateStoreManager(StateStoreManager):
                 cursor.execute(query)
 
             yield from cursor.fetchall()
+
+    @override
+    def close(self) -> None:
+        """Close the PostgreSQL connection if it has been opened."""
+        if self._connection is not None:
+            self._connection.close()
+            self._connection = None
+
+    if Version(version("meltano")) < Version("4.2.0"):
+
+        @override
+        def __enter__(self) -> PostgreSQLStateStoreManager:
+            """Enter the context manager.
+
+            Returns:
+                The manager instance.
+
+            """
+            return self
+
+        @override
+        def __exit__(
+            self,
+            exc_type: type[BaseException] | None,
+            exc_val: BaseException | None,
+            exc_tb: TracebackType | None,
+        ) -> None:
+            """Exit the context manager, closing the connection."""
+            self.close()
 
     @staticmethod
     def _state_id_to_lock_key(state_id: str) -> int:

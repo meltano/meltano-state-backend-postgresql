@@ -198,6 +198,6 @@ def test_close_without_connection(
         password="testpass",  # noqa: S106
         database="testdb",
     )
-    del manager.__dict__["connection"]
+    manager._connection = None
     manager.close()
     mock_conn.close.assert_not_called()

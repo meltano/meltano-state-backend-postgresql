@@ -22,6 +22,7 @@ classifiers = [
 dynamic = [ "version" ]
 dependencies = [
   "meltano>=3.7",
+  "packaging>=26.2",
   "psycopg[binary]>=3.1,<4",
 ]
 [[project.authors]]
@@ -58,7 +59,6 @@ lint = [
 tests = [
   "coverage[toml]>=7.13",
   "meltano[postgres]",
-  "packaging>=26.2",
   "pytest>=9",
   "sqlalchemy>=2",
   "testcontainers[postgres]>=4.14.2",
@@ -160,16 +160,14 @@ unused-type-ignore-comment = "ignore"
 addopts = [
   "--durations=10",
   "-ra",
-  "--strict-config",
-  "--strict-markers",
 ]
 filterwarnings = [
   "error",
 ]
 log_level = "INFO"
 minversion = "9"
+strict = true
 testpaths = [ "tests" ]
-xfail_strict = true
 
 [tool.coverage.paths]
 package = [

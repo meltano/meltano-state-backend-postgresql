@@ -235,3 +235,32 @@ def test_acquire_lock_multiple_retries_then_success(
     ):
         assert mock_sleep.call_count == 3
         mock_sleep.assert_called_with(0.01)
+
+
+def test_context_manager(
+    subject: tuple[PostgreSQLStateStoreManager, mock.Mock],
+    mock_connection: tuple[mock.MagicMock, mock.Mock, mock.Mock],
+) -> None:
+    """Manager can be used as a context manager; close() is called on exit."""
+    manager, _ = subject
+    _, mock_conn, _ = mock_connection
+
+    with manager as m:
+        assert m is manager
+        assert manager._connection is not None
+
+    mock_conn.close.assert_called_once()
+
+    manager.close()  # no-op: _connection is already None
+    mock_conn.close.assert_called_once()  # still only called once
+    assert manager._connection is None
+
+
+def test_close_without_connection(
+    subject: tuple[PostgreSQLStateStoreManager, mock.Mock],
+) -> None:
+    """close() is a no-op when connection has never been opened."""
+    manager, _ = subject
+    manager._connection = None
+    manager.close()  # should not raise
+    assert manager._connection is None
