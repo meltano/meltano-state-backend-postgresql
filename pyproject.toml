@@ -223,10 +223,10 @@ commands = [
 [tool.tox.env.lowest]
 description = "run tests with lowest-direct requirements on Python {py_dot_ver}"
 base_python = "3.10"
+base_python_file = []
 pass_env = [
   "CI",
 ]
-base_python_file = []
 uv_resolution = "lowest-direct"
 [tool.tox.env.types]
 description = "type checking"
@@ -251,12 +251,12 @@ commands = [
 [tool.tox.env_run_base]
 runner = "uv-venv-runner"
 description = "run tests on Python {py_dot_ver}"
+base_python_file = [ ".python-version" ]
 dependency_groups = [ "tests" ]
 pass_env = [
   "CI",
 ]
 commands = [ [ "coverage", "run", "-m", "pytest", { replace = "posargs", default = [ "tests" ], extend = true } ] ]
-base_python_file = [ ".python-version" ]
 [tool.tox.gh.python]
 "3.10" = [ "3.10", "lowest" ]
 "3.11" = [ "3.11" ]
