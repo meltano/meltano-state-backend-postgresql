@@ -19,7 +19,7 @@ if TYPE_CHECKING:
     from collections.abc import Generator
 
     from meltano.core.project import Project
-    from testcontainers.postgres import PostgresContainer
+    from testcontainers.community.postgres import PostgresContainer
 
 
 @pytest.mark.skipif(

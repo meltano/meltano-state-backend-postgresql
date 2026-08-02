@@ -7,7 +7,7 @@ from unittest import mock
 
 import pytest
 from meltano.core.project import Project
-from testcontainers.postgres import PostgresContainer
+from testcontainers.community.postgres import PostgresContainer
 
 from meltano_state_backend_postgresql.backend import PostgreSQLStateStoreManager
 

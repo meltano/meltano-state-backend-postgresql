@@ -61,7 +61,7 @@ tests = [
   "meltano[postgres]",
   "pytest>=9",
   "sqlalchemy>=2",
-  "testcontainers[postgres]>=4.14.2",
+  "testcontainers[postgres]>=4.15",
 ]
 types = [
   "mypy>=2.1",
