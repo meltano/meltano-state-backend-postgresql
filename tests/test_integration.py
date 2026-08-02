@@ -15,7 +15,7 @@ from meltano_state_backend_postgresql.backend import DEFAULT_TABLE_NAME, Postgre
 if TYPE_CHECKING:
     from collections.abc import Generator
 
-    from testcontainers.postgres import PostgresContainer
+    from testcontainers.community.postgres import PostgresContainer
 
 
 @pytest.mark.skipif(
