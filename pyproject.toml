@@ -25,9 +25,16 @@ dependencies = [
   "packaging>=26.2",
   "psycopg[binary]>=3.1,<4",
 ]
+[[project.maintainers]]
+name = "Meltano Team"
+email = "hello@meltano.com"
 [[project.authors]]
 name = "Alexander Phethean"
 email = "aphethean@gmail.com"
+[project.urls]
+Documentation = "https://github.com/meltano/meltano-state-backend-postgresql"
+Source = "https://github.com/meltano/meltano-state-backend-postgresql"
+Issues = "https://github.com/meltano/meltano-state-backend-postgresql/issues"
 [project.entry-points."meltano.settings"]
 host = "meltano_state_backend_postgresql.backend:POSTGRESQL_HOST"
 port = "meltano_state_backend_postgresql.backend:POSTGRESQL_PORT"
@@ -39,13 +46,6 @@ sslmode = "meltano_state_backend_postgresql.backend:POSTGRESQL_SSLMODE"
 table = "meltano_state_backend_postgresql.backend:POSTGRESQL_TABLE"
 [project.entry-points."meltano.state_backends"]
 postgresql = "meltano_state_backend_postgresql.backend:PostgreSQLStateStoreManager"
-[[project.maintainers]]
-name = "Meltano Team"
-email = "hello@meltano.com"
-[project.urls]
-Documentation = "https://github.com/meltano/meltano-state-backend-postgresql"
-Source = "https://github.com/meltano/meltano-state-backend-postgresql"
-Issues = "https://github.com/meltano/meltano-state-backend-postgresql/issues"
 
 [dependency-groups]
 dev = [
@@ -166,6 +166,14 @@ minversion = "9"
 strict = true
 testpaths = [ "tests" ]
 
+[tool.coverage.run]
+branch = true
+source = [
+  "meltano_state_backend_postgresql",
+  "tests",
+]
+parallel = true
+relative_files = true
 [tool.coverage.paths]
 package = [
   "src/meltano_state_backend_postgresql/",
@@ -176,14 +184,6 @@ exclude_also = [
   "if (t\\.)?TYPE_CHECKING:",
 ]
 fail_under = 100
-[tool.coverage.run]
-branch = true
-source = [
-  "meltano_state_backend_postgresql",
-  "tests",
-]
-parallel = true
-relative_files = true
 
 [tool.tox]
 requires = [
