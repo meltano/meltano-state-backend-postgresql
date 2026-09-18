@@ -18,6 +18,7 @@ classifiers = [
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
   "Programming Language :: Python :: 3.14",
+  "Programming Language :: Python :: 3.15",
 ]
 dynamic = [ "version" ]
 dependencies = [
@@ -57,8 +58,11 @@ lint = [
   "ruff>=0.15",
 ]
 tests = [
-  "coverage[toml]>=7.13",
+  { include-group = "tests-base" },
   "meltano[postgres]",
+]
+tests-base = [
+  "coverage[toml]>=7.13",
   "pytest>=9",
   "sqlalchemy>=2",
   "testcontainers[postgres]>=4.15",
@@ -70,11 +74,19 @@ types = [
 ]
 
 [tool.hatch.version]
-fallback-version = "0.0.0.dev0"
 source = "vcs"
+fallback-version = "0.0.0.dev0"
 
 [tool.ruff]
 line-length = 120
+[tool.ruff.lint.flake8-annotations]
+allow-star-arg-any = true
+mypy-init-return = true
+suppress-dummy-args = true
+[tool.ruff.lint.flake8-pytest-style]
+parametrize-values-type = "tuple"
+[tool.ruff.lint.pydocstyle]
+convention = "google"
 [tool.ruff.lint]
 select = [
   "A",    # flake8-builtins
@@ -126,14 +138,6 @@ per-file-ignores."tests/**" = [
   "INP",  # Don't require __init__.py files in tests directories
   "S101", # Allow 'assert' in tests
 ]
-[tool.ruff.lint.flake8-annotations]
-allow-star-arg-any = true
-mypy-init-return = true
-suppress-dummy-args = true
-[tool.ruff.lint.flake8-pytest-style]
-parametrize-values-type = "tuple"
-[tool.ruff.lint.pydocstyle]
-convention = "google"
 
 [tool.pyproject-fmt]
 table_format = "long"
@@ -167,11 +171,11 @@ strict = true
 testpaths = [ "tests" ]
 
 [tool.coverage.run]
-branch = true
 source = [
   "meltano_state_backend_postgresql",
   "tests",
 ]
+branch = true
 parallel = true
 relative_files = true
 [tool.coverage.paths]
@@ -180,10 +184,10 @@ package = [
   "*/site-packages/meltano_state_backend_postgresql/",
 ]
 [tool.coverage.report]
+fail_under = 100
 exclude_also = [
   "if (t\\.)?TYPE_CHECKING:",
 ]
-fail_under = 100
 
 [tool.tox]
 requires = [
@@ -210,6 +214,15 @@ depends = [
   "3.*",
   "lowest",
 ]
+[tool.tox.env.edge]
+description = "run tests against meltano main branch (HEAD)"
+base_python = "3.14"
+base_python_file = []
+dependency_groups = [ "tests-base" ]
+commands_pre = [
+  [ "uv", "pip", "install", "--reinstall", "meltano[postgres] @ git+https://github.com/meltano/meltano.git" ]
+]
+commands = [ [ "pytest", { replace = "posargs", default = [ "tests" ], extend = true } ] ]
 [tool.tox.env.lint]
 description = "lint & format"
 skip_install = true
@@ -222,9 +235,6 @@ commands = [
 description = "run tests with lowest-direct requirements on Python {py_dot_ver}"
 base_python = "3.10"
 base_python_file = []
-pass_env = [
-  "CI",
-]
 uv_resolution = "lowest-direct"
 [tool.tox.env.types]
 description = "type checking"
@@ -261,3 +271,4 @@ commands = [ [ "coverage", "run", "-m", "pytest", { replace = "posargs", default
 "3.12" = [ "3.12" ]
 "3.13" = [ "3.13" ]
 "3.14" = [ "3.14" ]
+"3.15" = [ "3.15", "edge" ]
